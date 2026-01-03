@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type LeadUpdateBody = {
@@ -11,12 +11,9 @@ type LeadUpdateBody = {
   empresa_id?: string | null;
 };
 
-/* =========================================================
-   TIPO DE PARAMS — NECESSÁRIO PARA O NEXT
-========================================================= */
-type RouteParams =
-  | { params: { id: string } }
-  | { params: Promise<{ id: string }> };
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -24,18 +21,16 @@ function isUuid(value: string) {
   );
 }
 
-
 /* =========================================================
    PUT — ATUALIZAR LEAD
 ========================================================= */
 export async function PUT(
-  req: Request,
-  context: RouteParams
+  req: NextRequest,
+  context: RouteContext
 ) {
-  const params = "params" in context ? await context.params : null;
-  const id = params?.id;
+  const { id } = await context.params;
 
-  if (!id || typeof id !== "string" || !isUuid(id)) {
+  if (!id || !isUuid(id)) {
     return NextResponse.json(
       { error: "ID do lead inválido ou não informado" },
       { status: 400 }
@@ -49,7 +44,6 @@ export async function PUT(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  // validações
   if (!body.nome || body.nome.trim().length < 2) {
     return NextResponse.json(
       { error: "Nome é obrigatório e precisa ter pelo menos 2 caracteres" },
@@ -122,13 +116,12 @@ export async function PUT(
    DELETE — EXCLUIR LEAD
 ========================================================= */
 export async function DELETE(
-  _req: Request,
-  context: RouteParams
+  _req: NextRequest,
+  context: RouteContext
 ) {
-  const params = "params" in context ? await context.params : null;
-  const id = params?.id;
+  const { id } = await context.params;
 
-  if (!id || typeof id !== "string" || !isUuid(id)) {
+  if (!id || !isUuid(id)) {
     return NextResponse.json(
       { error: "ID do lead inválido ou não informado" },
       { status: 400 }
@@ -157,7 +150,10 @@ export async function DELETE(
     );
   }
 
-  const { error } = await supabaseAdmin.from("leads").delete().eq("id", id);
+  const { error } = await supabaseAdmin
+    .from("leads")
+    .delete()
+    .eq("id", id);
 
   if (error) {
     return NextResponse.json(
@@ -166,5 +162,8 @@ export async function DELETE(
     );
   }
 
-  return NextResponse.json({ message: "Lead excluído com sucesso" });
+  return NextResponse.json(
+    { message: "Lead excluído com sucesso" },
+    { status: 200 }
+  );
 }

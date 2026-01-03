@@ -1,22 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-type Params = {
-  params: {
-    id: string,
-  },
+type RouteContext = {
+  params: Promise<{ id: string }>;
 };
 
 type EmpresaUpdateBody = {
-  nome?: string,
-  cidade?: string | null,
-  tamanho?: string,
-  site?: string | null,
-  linkedin_url?: string | null,
+  nome?: string;
+  cidade?: string | null;
+  tamanho?: string;
+  site?: string | null;
+  linkedin_url?: string | null;
 };
 
-export async function PUT(req: Request, { params }: Params) {
-  const { id } = params;
+export async function PUT(
+  req: NextRequest,
+  context: RouteContext
+) {
+  const { id } = await context.params;
 
   if (!id) {
     return NextResponse.json(
@@ -69,8 +70,11 @@ export async function PUT(req: Request, { params }: Params) {
   );
 }
 
-export async function DELETE(_req: Request, { params }: Params) {
-  const { id } = params;
+export async function DELETE(
+  _req: NextRequest,
+  context: RouteContext
+) {
+  const { id } = await context.params;
 
   if (!id) {
     return NextResponse.json(
@@ -79,14 +83,12 @@ export async function DELETE(_req: Request, { params }: Params) {
     );
   }
 
-  // opcional: bloquear exclusão se houver leads vinculados
   const { count, error: countError } = await supabaseAdmin
     .from("leads")
     .select("id", { count: "exact", head: true })
     .eq("empresa_id", id);
 
   if (countError) {
-    console.error("Erro ao verificar leads da empresa:", countError);
     return NextResponse.json(
       { error: "Erro ao validar empresa", details: countError.message },
       { status: 500 }
@@ -103,10 +105,12 @@ export async function DELETE(_req: Request, { params }: Params) {
     );
   }
 
-  const { error } = await supabaseAdmin.from("empresas").delete().eq("id", id);
+  const { error } = await supabaseAdmin
+    .from("empresas")
+    .delete()
+    .eq("id", id);
 
   if (error) {
-    console.error("Erro ao excluir empresa:", error);
     return NextResponse.json(
       { error: "Erro ao excluir empresa", details: error.message },
       { status: 500 }
