@@ -431,7 +431,7 @@ export default function DashboardPage() {
   "
 >
   <span className="text-xl font-bold text-[#0A2A5F] tracking-wide">
-    Dashboard - Exxacta
+    Dashboard
   </span>
 
   <LogoutButton />
