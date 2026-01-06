@@ -1,6 +1,7 @@
+// src\app\(dashboard)\dashboard\page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { EmpresaModal } from "@/components/empresa-modal";
 import { LeadModal } from "@/components/lead-modal";
@@ -10,6 +11,24 @@ import { useRealtimeLeadsInteracoes } from "@/hooks/useRealtimeLeadsInteracoes";
 import { EmailTemplateModal } from "@/components/EmailTemplateModal";
 import { AddEntityModal } from "@/components/add-entity-modal";
 import { LogoutButton } from "@/components/LogoutButton";
+
+import {
+  Building2,
+  Users,
+  MessagesSquare,
+  Mail,
+  Plus,
+  Filter,
+  Search,
+  ChevronLeft,
+  Globe,
+  Linkedin,
+  CalendarClock,
+  BadgeCheck,
+  BadgeAlert,
+  BadgeHelp,
+  ArrowUpRight,
+} from "lucide-react";
 
 /* ===================== TYPES ===================== */
 
@@ -131,6 +150,41 @@ const STATUS_COLORS: Record<string, string> = {
   perdido: "bg-red-200 text-red-700 border-red-500",
 };
 
+function canalLabel(canal?: string | null) {
+  const v = (canal || "").trim().toLowerCase();
+  if (!v) return "Não informado";
+  const map: Record<string, string> = {
+    linkedin: "LinkedIn",
+    email: "E-mail",
+    telefone: "Telefone",
+    reuniao: "Reunião",
+    automacao_n8n: "Automação (n8n)",
+  };
+  return map[v] ?? canal!;
+}
+
+function statusIconByKey(key: string) {
+  const k = (key || "").trim().toLowerCase();
+  if (k === "fechado") return BadgeCheck;
+  if (k === "perdido") return BadgeAlert;
+  if (k === "frio") return BadgeHelp;
+  return CalendarClock;
+}
+
+function formatDateBR(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR");
+  } catch {
+    return iso;
+  }
+}
+
+function formatEmpresaTamanho(tamanho: string) {
+  const t = (tamanho || "").trim();
+  if (!t) return "Não informado";
+  return t.replaceAll("_ate_", " até ").replaceAll("_", " ");
+}
+
 /* ===================== PAGE ===================== */
 
 export default function DashboardPage() {
@@ -142,6 +196,11 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [interacoes, setInteracoes] = useState<Interacao[]>([]);
   const [openAdd, setOpenAdd] = useState(false);
+
+  // 🔎 filtros locais (apenas UI, não mexe em rotas)
+  const [searchLeads, setSearchLeads] = useState("");
+  const [searchEmpresas, setSearchEmpresas] = useState("");
+  const [searchInteracoes, setSearchInteracoes] = useState("");
 
   // refs para evitar duplicação com closures antigas no realtime
   const leadsIdsRef = useRef<Set<string>>(new Set());
@@ -321,9 +380,7 @@ export default function DashboardPage() {
       // 1) mescla rápido (UX) + normaliza o status (move de coluna)
       setLeads((prev) =>
         prev.map((l) =>
-          l.id === row.id
-            ? { ...l, ...row, status: normalizeStatus(row.status) }
-            : l
+          l.id === row.id ? { ...l, ...row, status: normalizeStatus(row.status) } : l
         )
       );
 
@@ -336,9 +393,7 @@ export default function DashboardPage() {
 
       if (leadCompleto) {
         const item = leadCompleto as Lead;
-        setLeads((prev) =>
-          prev.map((l) => (l.id === item.id ? { ...l, ...item } : l))
-        );
+        setLeads((prev) => prev.map((l) => (l.id === item.id ? { ...l, ...item } : l)));
       }
     },
 
@@ -404,11 +459,29 @@ export default function DashboardPage() {
     };
   });
 
+  // aplica busca local (UI) + filtro de status
+  const leadsSearched = useMemo(() => {
+    const q = searchLeads.trim().toLowerCase();
+    if (!q) return leadsNormalized;
+    return leadsNormalized.filter((l) => {
+      const nome = (l.nome || "").toLowerCase();
+      const cargo = (l.cargo || "").toLowerCase();
+      const perfil = (l.perfil || "").toLowerCase();
+      const link = (l.linkedin_url || "").toLowerCase();
+      return (
+        nome.includes(q) ||
+        cargo.includes(q) ||
+        perfil.includes(q) ||
+        link.includes(q)
+      );
+    });
+  }, [leadsNormalized, searchLeads]);
+
   // Aplica filtro ativo do pipeline
   const leadsFiltrados =
     pipelineStatus === "todos"
-      ? leadsNormalized
-      : leadsNormalized.filter((l) => l.status === pipelineStatus);
+      ? leadsSearched
+      : leadsSearched.filter((l) => l.status === pipelineStatus);
 
   // Monta colunas com base nos status oficiais
   const pipelineColumns = PIPELINE_STATUSES.map((col) => ({
@@ -416,333 +489,536 @@ export default function DashboardPage() {
     leads: leadsFiltrados.filter((l) => l.status === col.key),
   }));
 
+  // empresas / interacoes buscadas (UI)
+  const empresasSearched = useMemo(() => {
+    const q = searchEmpresas.trim().toLowerCase();
+    if (!q) return empresas;
+    return empresas.filter((e) => {
+      const nome = (e.nome || "").toLowerCase();
+      const cidade = (e.cidade || "").toLowerCase();
+      const site = (e.site || "").toLowerCase();
+      const linkedin = (e.linkedin_url || "").toLowerCase();
+      const tamanho = (e.tamanho || "").toLowerCase();
+      return (
+        nome.includes(q) ||
+        cidade.includes(q) ||
+        site.includes(q) ||
+        linkedin.includes(q) ||
+        tamanho.includes(q)
+      );
+    });
+  }, [empresas, searchEmpresas]);
+
+  const interacoesSearched = useMemo(() => {
+    const q = searchInteracoes.trim().toLowerCase();
+    if (!q) return interacoes;
+    return interacoes.filter((it) => {
+      const lead = (it.lead?.nome || "").toLowerCase();
+      const status = (it.status || "").toLowerCase();
+      const canal = (it.canal || "").toLowerCase();
+      const obs = (it.observacao || "").toLowerCase();
+      return lead.includes(q) || status.includes(q) || canal.includes(q) || obs.includes(q);
+    });
+  }, [interacoes, searchInteracoes]);
+
+  function goHome() {
+    setView("home");
+  }
+
+  function titleForView() {
+    if (view === "empresas") return "Empresas";
+    if (view === "leads") return "Leads";
+    if (view === "interacoes") return "Interações";
+    return "Dashboard";
+  }
+
+  function subtitleForView() {
+    if (view === "empresas") return "Gerencie empresas e visualize detalhes com padrão corporativo.";
+    if (view === "leads") return "Pipeline e lista detalhada de leads — com filtros e status visuais.";
+    if (view === "interacoes") return "Histórico de interações registradas (manual e automações).";
+    return "Resumo executivo da operação.";
+  }
+
   return (
     <div className="space-y-6">
-      {/* ===================== HEADER TOP (mais enterprise) ===================== */}
+      {/* ===================== TOP BAR / HEADER ===================== */}
       <div
         className="
-          flex flex-col gap-4
-          bg-white/90 backdrop-blur-xl
-          border border-slate-200
-          rounded-2xl shadow-sm
-          px-6 py-5
+          exx-card
+          flex items-center justify-between gap-3
+          bg-gradient-to-br from-white to-[#E0F2FE]
+          border border-[#BFDBFE]
+          rounded-2xl shadow-md
+          hover:shadow-[0_0_18px_4px_rgba(191,219,254,0.75)]
+          transition-all duration-300
+          px-6 py-4
         "
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              Dashboard
-            </h1>
-            <p className="text-sm text-slate-500">
-              Visão geral do funil, empresas, leads e atividades registradas.
-            </p>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {view !== "home" ? (
+              <button
+                onClick={goHome}
+                className="
+                  inline-flex items-center gap-2
+                  text-sm font-semibold text-[#0A2A5F]
+                  px-3 py-2 rounded-xl
+                  border border-[#BFDBFE]
+                  bg-white/70
+                  hover:bg-white hover:shadow-sm
+                  transition
+                "
+                title="Voltar"
+              >
+                <ChevronLeft size={16} />
+                Voltar
+              </button>
+            ) : (
+              <span
+                className="
+                  inline-flex items-center gap-2
+                  text-xs font-semibold
+                  text-[#0A2A5F]
+                  px-3 py-1.5 rounded-full
+                  border border-[#BFDBFE]
+                  bg-white/60
+                "
+              >
+                <BadgeCheck size={14} />
+                Exxacta • Painel do Cliente
+              </span>
+            )}
+
+            <span className="text-xl font-extrabold text-[#0A2A5F] tracking-wide truncate">
+              {titleForView()}
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setOpenAdd(true)}
-              className="
-                hidden md:flex items-center gap-2
-                px-4 py-2 rounded-xl
-                bg-gradient-to-r from-[#0A2A5F] to-[#0F4C81]
-                text-white font-semibold text-sm
-                shadow-md hover:shadow-lg
-                hover:scale-[1.02] active:scale-[0.99]
-                transition-all
-              "
-            >
-              ➕ Adicionar Cliente / Empresa
-            </button>
-
-            <LogoutButton />
-          </div>
+          <p className="text-xs text-slate-500 mt-1 truncate">
+            {subtitleForView()}
+          </p>
         </div>
 
-        {/* Ações mobile (mantém funcional, sem “sumir”) */}
-        <div className="md:hidden">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setOpenAdd(true)}
             className="
-              w-full flex items-center justify-center gap-2
-              px-4 py-3 rounded-xl
-              bg-gradient-to-r from-[#0A2A5F] to-[#0F4C81]
-              text-white font-semibold text-sm
-              shadow-md hover:shadow-lg
-              transition-all
+              hidden sm:inline-flex
+              items-center gap-2
+              bg-gradient-to-br from-white to-[#E0F2FE]
+              border border-[#BFDBFE]
+              rounded-xl shadow-sm
+              hover:shadow-md hover:-translate-y-[1px]
+              transition-all duration-300
+              px-4 py-2
+              text-[#0A2A5F] font-semibold text-sm
             "
           >
-            ➕ Adicionar Cliente / Empresa
+            <Plus size={16} />
+            Novo registro
           </button>
+
+          <LogoutButton />
         </div>
       </div>
 
-      {/* ===================== CARDS (mais alinhados) ===================== */}
+      {/* ===================== STATS / NAV CARDS ===================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card
           title="Empresas registradas"
+          subtitle="Cadastros no banco"
           value={empresas.length}
+          icon={Building2}
           onClick={() => setView("empresas")}
-          hint="Gerencie empresas cadastradas"
         />
 
         <Card
           title="Leads coletados"
+          subtitle="Pipeline + lista"
           value={leads.length}
+          icon={Users}
           onClick={() => setView("leads")}
-          hint="Veja o pipeline e detalhes"
-          featured
         />
 
         <Card
           title="Interações registradas"
+          subtitle="Histórico e automações"
           value={interacoes.length}
+          icon={MessagesSquare}
           onClick={() => setView("interacoes")}
-          hint="Histórico e registros"
         />
 
         <Card
-          title="E-mail Automático"
+          title="E-mail automático"
+          subtitle="Template + controle"
           value={0}
+          icon={Mail}
           onClick={() => setOpenEmailModal(true)}
-          hint="Configurar template e ativação"
-          actionLabel="Configurar"
+          highlight
         />
       </div>
 
-      {/* ===================== NAV (seu mesmo view, só mais claro) ===================== */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-          <button
-            onClick={() => setView("home")}
-            className={`
-              px-4 py-2 rounded-lg text-sm font-semibold transition-all
-              ${view === "home" ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-50"}
-            `}
-          >
-            Visão geral
-          </button>
-          <button
-            onClick={() => setView("leads")}
-            className={`
-              px-4 py-2 rounded-lg text-sm font-semibold transition-all
-              ${view === "leads" ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-50"}
-            `}
-          >
-            Leads
-          </button>
-          <button
-            onClick={() => setView("empresas")}
-            className={`
-              px-4 py-2 rounded-lg text-sm font-semibold transition-all
-              ${view === "empresas" ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-50"}
-            `}
-          >
-            Empresas
-          </button>
-          <button
-            onClick={() => setView("interacoes")}
-            className={`
-              px-4 py-2 rounded-lg text-sm font-semibold transition-all
-              ${view === "interacoes" ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-50"}
-            `}
-          >
-            Interações
-          </button>
-        </div>
-
-        {view === "interacoes" && (
-          <button
-            onClick={() => setOpenNovaInteracaoModal(true)}
-            className="
-              px-4 py-2 rounded-xl text-sm font-semibold
-              bg-white border border-slate-200
-              hover:bg-slate-50 hover:shadow-sm
-              transition-all
-            "
-          >
-            + Nova interação
-          </button>
-        )}
+      {/* ===================== QUICK ACTIONS (MOBILE) ===================== */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setOpenAdd(true)}
+          className="
+            sm:hidden
+            flex items-center gap-2
+            bg-gradient-to-br from-white to-[#E0F2FE]
+            border border-[#BFDBFE]
+            rounded-xl shadow-md
+            hover:shadow-lg hover:-translate-y-[2px] hover:scale-[1.01]
+            transition-all duration-300
+            px-5 py-3
+            text-[#0A2A5F] font-semibold
+          "
+        >
+          <Plus size={18} />
+          Adicionar Cliente / Empresa
+        </button>
       </div>
 
-      {/* ===================== ADD ENTITY MODAL ===================== */}
       <AddEntityModal open={openAdd} onClose={() => setOpenAdd(false)} />
 
       {/* ===================== CONTENT ===================== */}
       {view === "home" && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <p className="text-slate-500 text-sm">
-            Selecione um card acima ou use as abas para navegar.
+        <div
+          className="
+            bg-gradient-to-br from-white to-[#E0F2FE]
+            border border-[#BFDBFE]
+            rounded-2xl shadow-sm
+            p-6
+          "
+        >
+          <p className="text-slate-600 text-sm">
+            Selecione um card para visualizar os dados. O painel foi otimizado para leitura
+            rápida (padrão empresa) e com ações diretas.
           </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => setView("leads")}
+              className="
+                inline-flex items-center gap-2
+                px-4 py-2 rounded-xl
+                bg-slate-900 text-white text-sm font-semibold
+                hover:bg-slate-800 transition
+              "
+            >
+              <Users size={16} />
+              Abrir Pipeline de Leads
+            </button>
+
+            <button
+              onClick={() => setOpenEmailModal(true)}
+              className="
+                inline-flex items-center gap-2
+                px-4 py-2 rounded-xl
+                border border-[#BFDBFE]
+                bg-white/70 text-[#0A2A5F] text-sm font-semibold
+                hover:bg-white hover:shadow-sm transition
+              "
+            >
+              <Mail size={16} />
+              Configurar E-mail Automático
+            </button>
+          </div>
         </div>
       )}
 
       {view === "empresas" && (
-        <EmpresasSection empresas={empresas} onSelect={abrirEmpresa} />
+        <EmpresasSection
+          empresas={empresasSearched}
+          onSelect={abrirEmpresa}
+          searchValue={searchEmpresas}
+          onSearchChange={setSearchEmpresas}
+        />
       )}
 
       {view === "leads" && (
         <>
-          {/* ======= PIPELINE HEADER / FILTRO (mais limpo e premium) ======= */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+          {/* ======= PIPELINE HEADER / FILTRO / BUSCA ======= */}
+          <div
+            className="
+              bg-gradient-to-br from-white to-[#E0F2FE]
+              border border-[#BFDBFE]
+              rounded-2xl shadow-md
+              hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+              transition-all duration-300
+              p-6
+              text-[#1E293B]
+            "
+          >
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="space-y-1">
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="text-lg font-extrabold text-[#0A2A5F]">
                   Pipeline de Leads
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Clique em um lead para ver detalhes. Filtre por status e
-                  visualize em colunas.
+                  Clique em um lead para ver detalhes. Filtre por status e visualize em colunas.
+                  Use a busca para localizar rapidamente um nome/cargo/perfil/LinkedIn.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-semibold text-slate-600">
-                  Filtrar:
-                </label>
-                <select
-                  value={pipelineStatus}
-                  onChange={(e) => setPipelineStatus(e.target.value)}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div
                   className="
-                    rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white
-                    focus:outline-none focus:ring-2 focus:ring-slate-900/20
+                    flex items-center gap-2
+                    rounded-xl border border-[#BFDBFE]
+                    bg-white/70
+                    px-3 py-2
+                    shadow-sm
                   "
                 >
-                  <option value="todos">Todos</option>
-                  {PIPELINE_STATUSES.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                  <Search size={16} className="text-slate-500" />
+                  <input
+                    value={searchLeads}
+                    onChange={(e) => setSearchLeads(e.target.value)}
+                    placeholder="Buscar leads..."
+                    className="
+                      bg-transparent outline-none
+                      text-sm text-slate-700
+                      placeholder:text-slate-400
+                      w-full sm:w-[240px]
+                    "
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <Filter size={14} />
+                    Filtrar:
+                  </span>
+
+                  <select
+                    value={pipelineStatus}
+                    onChange={(e) => setPipelineStatus(e.target.value)}
+                    className="
+                      rounded-xl border border-[#BFDBFE]
+                      px-3 py-2 text-sm bg-white
+                      focus:outline-none focus:ring-2 focus:ring-slate-900/20
+                      shadow-sm
+                    "
+                  >
+                    <option value="todos">Todos</option>
+                    {PIPELINE_STATUSES.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
           {/* ======= PIPELINE COLUNAS ======= */}
           <div className="w-full overflow-x-auto pt-2">
-            {/* melhor: min-width responsivo sem classe inválida */}
-            <div className="min-w-[1100px] grid grid-cols-7 gap-3">
-              {pipelineColumns.map((col) => (
-                <div
-                  key={col.key}
-                  className="
-                    rounded-2xl border border-slate-200
-                    bg-white
-                    shadow-sm
-                    hover:shadow-md
-                    transition-all
-                  "
-                >
-                  {/* Cabeçalho da coluna */}
-                  <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-slate-800">
-                      {col.label}
-                    </p>
+            <div className="min-w-[1180px] grid grid-cols-7 gap-3">
+              {pipelineColumns.map((col) => {
+                const StatusIco = statusIconByKey(col.key);
+                return (
+                  <div
+                    key={col.key}
+                    className="
+                      rounded-2xl border
+                      bg-gradient-to-br from-white to-[#E0F2FE]
+                      border-[#BFDBFE]
+                      shadow-sm
+                      hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+                      hover:-translate-y-[2px]
+                      transition-all duration-300
+                    "
+                  >
+                    {/* Cabeçalho da coluna */}
+                    <div className="px-3 py-3 border-b border-[#BFDBFE]/60 flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="
+                            w-9 h-9 rounded-xl
+                            bg-white/70 border border-[#BFDBFE]
+                            flex items-center justify-center
+                            shadow-sm
+                          "
+                        >
+                          <StatusIco size={16} className="text-[#0A2A5F]" />
+                        </span>
 
-                    {/* Badge de quantidade com cor por status */}
-                    <span
-                      className={`
-                        text-[11px] px-2 py-1 rounded-full border
-                        ${STATUS_COLORS[col.key] ?? "bg-slate-100 text-slate-700 border-slate-300"}
-                      `}
-                    >
-                      {col.leads.length}
-                    </span>
-                  </div>
+                        <p className="text-sm font-extrabold text-[#0A2A5F] truncate">
+                          {col.label}
+                        </p>
+                      </div>
 
-                  {/* Conteúdo da coluna */}
-                  <div className="p-3 space-y-2">
-                    {col.leads.length === 0 && (
-                      <p className="text-xs text-slate-400 px-1">
-                        Sem leads aqui.
-                      </p>
-                    )}
-
-                    {col.leads.map((lead) => (
-                      <button
-                        key={lead.id}
-                        onClick={() => abrirLead(lead)}
-                        className="
-                          w-full text-left
-                          rounded-xl
-                          bg-slate-50
-                          border border-slate-200
-                          hover:bg-white
-                          hover:shadow-sm
-                          transition-all
-                          px-3 py-2
-                        "
+                      {/* Badge de quantidade com cor por status */}
+                      <span
+                        className={`
+                          text-[11px] px-2.5 py-1 rounded-full border
+                          ${STATUS_COLORS[col.key] ?? "bg-slate-100 text-slate-700 border-slate-300"}
+                        `}
                       >
-                        <p className="text-sm font-semibold text-slate-900 line-clamp-1">
-                          {lead.nome}
-                        </p>
+                        {col.leads.length}
+                      </span>
+                    </div>
 
-                        <p className="text-[11px] text-slate-500 line-clamp-1">
-                          {lead.cargo || "Cargo não informado"}
-                        </p>
-
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="text-[10px] uppercase text-slate-500">
-                            {lead.perfil}
-                          </span>
-
-                          <span className="text-[10px] px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700">
-                            {statusLabel(normalizeStatus(lead.status))}
-                          </span>
+                    {/* Conteúdo da coluna */}
+                    <div className="p-3 space-y-2">
+                      {col.leads.length === 0 && (
+                        <div
+                          className="
+                            rounded-xl border border-dashed border-[#BFDBFE]
+                            bg-white/50
+                            p-3
+                          "
+                        >
+                          <p className="text-xs text-slate-400">Sem leads aqui.</p>
                         </div>
-                      </button>
-                    ))}
+                      )}
+
+                      {col.leads.map((lead) => (
+                        <button
+                          key={lead.id}
+                          onClick={() => abrirLead(lead)}
+                          className="
+                            group
+                            w-full text-left
+                            rounded-xl
+                            bg-gradient-to-br from-white/90 to-[#E0F2FE]
+                            border border-[#BFDBFE]
+                            hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
+                            hover:-translate-y-[2px]
+                            transition-all duration-300
+                            px-3 py-3
+                          "
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-extrabold text-slate-900 line-clamp-1">
+                                {lead.nome}
+                              </p>
+                              <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                                {lead.cargo || "Cargo não informado"}
+                              </p>
+                            </div>
+
+                            <span
+                              className="
+                                opacity-0 group-hover:opacity-100
+                                transition
+                                text-[#0A2A5F]
+                              "
+                              title="Abrir detalhes"
+                            >
+                              <ArrowUpRight size={16} />
+                            </span>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between gap-2">
+                            <span
+                              className="
+                                text-[10px] uppercase tracking-wide
+                                text-slate-600
+                                px-2 py-1 rounded-full
+                                bg-white/70 border border-[#BFDBFE]
+                              "
+                            >
+                              {lead.perfil}
+                            </span>
+
+                            <span
+                              className="
+                                text-[10px] px-2 py-1 rounded-full
+                                bg-slate-900 text-white
+                              "
+                            >
+                              {statusLabel(normalizeStatus(lead.status))}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* ======= SUA LISTA ORIGINAL (mantida) ======= */}
-          <div className="pt-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">
-                Lista completa (detalhada)
-              </h3>
-              <span className="text-xs text-slate-400">
-                Total: {leadsNormalized.length}
-              </span>
-            </div>
-            <LeadsSection leads={leadsNormalized} onSelect={abrirLead} />
-          </div>
+          {/* ======= LISTA DETALHADA (PROFISSIONAL) ======= */}
+          <LeadsSection
+            leads={leadsSearched}
+            onSelect={abrirLead}
+            totalAll={leads.length}
+            searchValue={searchLeads}
+            pipelineStatus={pipelineStatus}
+          />
         </>
       )}
 
       {view === "interacoes" && (
         <>
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-1">
-                <h2 className="text-xl font-bold text-slate-900">
-                  Interações registradas
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Histórico de ações realizadas com os leads.
-                </p>
+          <div
+            className="
+              bg-gradient-to-br from-white to-[#E0F2FE]
+              border border-[#BFDBFE]
+              rounded-2xl shadow-md
+              hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+              transition-all duration-300
+              p-6
+              flex flex-col lg:flex-row lg:items-center lg:justify-between
+              gap-4
+            "
+          >
+            <div>
+              <h2 className="text-lg font-extrabold text-[#0A2A5F]">
+                Interações registradas
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Visual executivo das interações (manual e automações). Clique para abrir detalhes.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div
+                className="
+                  flex items-center gap-2
+                  rounded-xl border border-[#BFDBFE]
+                  bg-white/70 px-3 py-2 shadow-sm
+                "
+              >
+                <Search size={16} className="text-slate-500" />
+                <input
+                  value={searchInteracoes}
+                  onChange={(e) => setSearchInteracoes(e.target.value)}
+                  placeholder="Buscar interações..."
+                  className="
+                    bg-transparent outline-none
+                    text-sm text-slate-700
+                    placeholder:text-slate-400
+                    w-full sm:w-[260px]
+                  "
+                />
               </div>
 
               <button
                 onClick={() => setOpenNovaInteracaoModal(true)}
                 className="
-                  px-4 py-2 rounded-xl text-sm font-semibold
+                  inline-flex items-center justify-center gap-2
+                  rounded-xl
                   bg-slate-900 text-white
+                  px-4 py-2
+                  font-semibold text-sm
                   hover:bg-slate-800
                   shadow-sm hover:shadow
-                  transition-all
+                  transition
                 "
               >
-                + Nova interação
+                <Plus size={16} />
+                Nova interação
               </button>
             </div>
           </div>
 
-          <InteracoesSection interacoes={interacoes} onSelect={abrirInteracao} />
+          <InteracoesSection interacoes={interacoesSearched} onSelect={abrirInteracao} />
         </>
       )}
 
@@ -792,67 +1068,69 @@ export default function DashboardPage() {
 
 function Card({
   title,
+  subtitle,
   value,
   onClick,
-  hint,
-  actionLabel,
-  featured,
+  icon: Icon,
+  highlight,
 }: {
   title: string;
+  subtitle?: string;
   value: number;
   onClick: () => void;
-  hint?: string;
-  actionLabel?: string;
-  featured?: boolean;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  highlight?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       className={`
-        relative overflow-hidden
-        rounded-2xl border
-        ${featured ? "border-[#0A2A5F]/25" : "border-slate-200"}
-        ${featured ? "bg-gradient-to-br from-[#0A2A5F] to-[#0F4C81] text-white" : "bg-white text-slate-900"}
-        shadow-sm hover:shadow-md
-        hover:-translate-y-[1px]
+        group
+        bg-gradient-to-br from-white to-[#E0F2FE]
+        border border-[#BFDBFE]
+        rounded-2xl shadow-md
+        hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+        hover:-translate-y-[2px]
         transition-all duration-300
-        p-5 text-left space-y-1
+        p-5 text-left
+        text-[#1E293B]
+        ${highlight ? "ring-2 ring-slate-900/10" : ""}
       `}
     >
       <div className="flex items-start justify-between gap-3">
-        <h3 className={`text-sm font-semibold ${featured ? "text-white/90" : "text-slate-600"}`}>
-          {title}
-        </h3>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-slate-600">{title}</h3>
+          {subtitle ? (
+            <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+              {subtitle}
+            </p>
+          ) : (
+            <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+              &nbsp;
+            </p>
+          )}
+        </div>
 
-        {actionLabel && (
-          <span
-            className={`
-              text-[10px] px-2 py-1 rounded-full border
-              ${featured ? "border-white/20 bg-white/10 text-white/90" : "border-slate-200 bg-slate-50 text-slate-600"}
-            `}
-          >
-            {actionLabel}
-          </span>
-        )}
+        <span
+          className="
+            w-11 h-11 rounded-2xl
+            bg-white/70 border border-[#BFDBFE]
+            flex items-center justify-center
+            shadow-sm
+            group-hover:shadow
+            transition
+          "
+        >
+          <Icon size={18} className="text-[#0A2A5F]" />
+        </span>
       </div>
 
-      <p className={`text-3xl font-bold mt-2 ${featured ? "text-white" : "text-slate-900"}`}>
-        {value}
-      </p>
-
-      {hint && (
-        <p className={`text-xs mt-1 ${featured ? "text-white/70" : "text-slate-500"}`}>
-          {hint}
-        </p>
-      )}
-
-      {/* detalhe visual leve */}
-      <div
-        className={`
-          pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full
-          ${featured ? "bg-white/10" : "bg-slate-100"}
-        `}
-      />
+      <div className="mt-4 flex items-end justify-between">
+        <p className="text-3xl font-extrabold text-slate-900">{value}</p>
+        <span className="text-xs font-semibold text-[#0A2A5F] opacity-0 group-hover:opacity-100 transition">
+          Abrir
+        </span>
+      </div>
     </button>
   );
 }
@@ -862,53 +1140,187 @@ function Card({
 function EmpresasSection({
   empresas,
   onSelect,
+  searchValue,
+  onSearchChange,
 }: {
   empresas: Empresa[];
   onSelect: (e: Empresa) => void;
+  searchValue: string;
+  onSearchChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-4 pt-2">
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 className="text-xl font-bold text-slate-900">
-          Empresas registradas
-        </h2>
-        <p className="text-xs text-slate-500 mt-1">
-          Clique em uma empresa para abrir o modal de detalhes/edição.
-        </p>
+      <div
+        className="
+          bg-gradient-to-br from-white to-[#E0F2FE]
+          border border-[#BFDBFE]
+          rounded-2xl shadow-md
+          hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+          transition-all duration-300
+          p-6
+        "
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-extrabold text-[#0A2A5F]">
+              Empresas registradas
+            </h2>
+            <p className="text-xs text-slate-500">
+              Clique em uma empresa para abrir detalhes e editar. Busca por nome, cidade, site ou LinkedIn.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div
+              className="
+                flex items-center gap-2
+                rounded-xl border border-[#BFDBFE]
+                bg-white/70 px-3 py-2 shadow-sm
+              "
+            >
+              <Search size={16} className="text-slate-500" />
+              <input
+                value={searchValue}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Buscar empresas..."
+                className="
+                  bg-transparent outline-none
+                  text-sm text-slate-700
+                  placeholder:text-slate-400
+                  w-full sm:w-[260px]
+                "
+              />
+            </div>
+
+            <span
+              className="
+                inline-flex items-center gap-2
+                rounded-xl border border-[#BFDBFE]
+                bg-white/70 px-4 py-2
+                text-xs font-semibold text-slate-700
+                shadow-sm
+              "
+              title="Total de empresas"
+            >
+              <Building2 size={14} className="text-[#0A2A5F]" />
+              Total: {empresas.length}
+            </span>
+          </div>
+        </div>
       </div>
 
       {empresas.length === 0 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <p className="text-slate-500 text-sm">
-            Nenhuma empresa cadastrada ainda.
-          </p>
+        <div
+          className="
+            bg-white/70 border border-[#BFDBFE]
+            rounded-2xl p-6
+          "
+        >
+          <p className="text-slate-500 text-sm">Nenhuma empresa cadastrada ainda.</p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {empresas.map((emp) => (
           <button
             key={emp.id}
             onClick={() => onSelect(emp)}
             className="
-              bg-white
-              border border-slate-200
+              group
+              bg-gradient-to-br from-white to-[#E0F2FE]
+              border border-[#BFDBFE]
               rounded-2xl shadow-sm
-              hover:shadow-md
-              hover:-translate-y-[1px]
+              hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+              hover:-translate-y-[2px]
               transition-all duration-300
-              p-5 text-left
+              p-5 text-left text-[#1E293B]
             "
           >
-            <h3 className="font-semibold text-slate-900 line-clamp-1">
-              {emp.nome}
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              {emp.cidade || "Sem cidade"}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Tamanho: {emp.tamanho.replace("_", " até ")}
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base font-extrabold text-slate-900 truncate">
+                  {emp.nome}
+                </h3>
+
+                <p className="text-xs text-slate-500 mt-1 truncate">
+                  {emp.cidade || "Cidade não informada"}
+                </p>
+              </div>
+
+              <span
+                className="
+                  w-10 h-10 rounded-2xl
+                  bg-white/70 border border-[#BFDBFE]
+                  flex items-center justify-center
+                  shadow-sm
+                  group-hover:shadow transition
+                "
+              >
+                <Building2 size={16} className="text-[#0A2A5F]" />
+              </span>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <span
+                className="
+                  text-[11px] px-2.5 py-1 rounded-full
+                  bg-white/70 border border-[#BFDBFE]
+                  text-slate-700
+                "
+              >
+                Tamanho: <strong>{formatEmpresaTamanho(emp.tamanho)}</strong>
+              </span>
+
+              <span className="text-[10px] text-slate-500">
+                {formatDateBR(emp.criado_em)}
+              </span>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              {emp.site && (
+                <span
+                  className="
+                    inline-flex items-center gap-2
+                    text-[11px] font-semibold
+                    px-3 py-1.5 rounded-xl
+                    bg-slate-900 text-white
+                    shadow-sm
+                  "
+                  title={emp.site}
+                >
+                  <Globe size={14} />
+                  Site
+                </span>
+              )}
+
+              {emp.linkedin_url && (
+                <span
+                  className="
+                    inline-flex items-center gap-2
+                    text-[11px] font-semibold
+                    px-3 py-1.5 rounded-xl
+                    border border-[#BFDBFE]
+                    bg-white/70 text-[#0A2A5F]
+                    shadow-sm
+                  "
+                  title={emp.linkedin_url}
+                >
+                  <Linkedin size={14} />
+                  LinkedIn
+                </span>
+              )}
+
+              <span
+                className="
+                  ml-auto
+                  opacity-0 group-hover:opacity-100
+                  transition text-[#0A2A5F]
+                "
+                title="Abrir detalhes"
+              >
+                <ArrowUpRight size={16} />
+              </span>
+            </div>
           </button>
         ))}
       </div>
@@ -921,64 +1333,214 @@ function EmpresasSection({
 function LeadsSection({
   leads,
   onSelect,
+  totalAll,
+  searchValue,
+  pipelineStatus,
 }: {
   leads: Lead[];
   onSelect: (lead: Lead) => void;
+  totalAll: number;
+  searchValue: string;
+  pipelineStatus: string;
 }) {
+  // aplica filtro de status (quando não for "todos") aqui também,
+  // mantendo consistência com o pipeline sem quebrar lógica existente.
+  const list = useMemo(() => {
+    const normalized = leads.map((l) => ({
+      ...l,
+      status: normalizeStatus(l.status),
+    }));
+    if (pipelineStatus === "todos") return normalized;
+    return normalized.filter((l) => l.status === pipelineStatus);
+  }, [leads, pipelineStatus]);
+
   return (
-    <div className="space-y-4 pt-4">
-      {leads.length === 0 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <p className="text-slate-500 text-sm">
-            Nenhum lead cadastrado ainda.
-          </p>
+    <div className="space-y-4 pt-6">
+      {/* HEADER PREMIUM DA LISTA DETALHADA */}
+      <div
+        className="
+          bg-gradient-to-br from-white to-[#E0F2FE]
+          border border-[#BFDBFE]
+          rounded-2xl shadow-md
+          hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+          transition-all duration-300
+          p-6
+        "
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-extrabold text-[#0A2A5F]">
+              Lista completa (detalhada)
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Visual corporativo: hierarquia de informação + badges de status. Clique para abrir o lead.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
+            <span
+              className="
+                inline-flex items-center gap-2
+                rounded-xl border border-[#BFDBFE]
+                bg-white/70 px-4 py-2
+                text-xs font-semibold text-slate-700
+                shadow-sm
+              "
+              title="Total geral (sem filtros)"
+            >
+              <Users size={14} className="text-[#0A2A5F]" />
+              Total: {totalAll}
+            </span>
+
+            <span
+              className="
+                inline-flex items-center gap-2
+                rounded-xl border border-[#BFDBFE]
+                bg-white/70 px-4 py-2
+                text-xs font-semibold text-slate-700
+                shadow-sm
+              "
+              title="Total exibido (com filtros/busca)"
+            >
+              <Filter size={14} className="text-[#0A2A5F]" />
+              Exibidos: {list.length}
+            </span>
+
+            {searchValue.trim() ? (
+              <span
+                className="
+                  inline-flex items-center gap-2
+                  rounded-xl border border-[#BFDBFE]
+                  bg-white/70 px-4 py-2
+                  text-xs font-semibold text-slate-700
+                  shadow-sm
+                "
+                title="Busca aplicada"
+              >
+                <Search size={14} className="text-[#0A2A5F]" />
+                Busca ativa
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {list.length === 0 && (
+        <div
+          className="
+            bg-white/70 border border-[#BFDBFE]
+            rounded-2xl p-6
+          "
+        >
+          <p className="text-slate-500 text-sm">Nenhum lead encontrado com os filtros atuais.</p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {leads.map((lead) => (
-          <div
-            key={lead.id}
-            onClick={() => onSelect(lead)}
-            className="
-              cursor-pointer
-              bg-white
-              border border-slate-200
-              rounded-2xl shadow-sm
-              hover:shadow-md
-              hover:-translate-y-[1px]
-              transition-all duration-300
-              p-6 text-left space-y-1
-            "
-          >
-            <h3 className="font-semibold text-slate-900 line-clamp-1">
-              {lead.nome}
-            </h3>
+      {/* GRID PROFISSIONAL */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {list.map((lead) => {
+          const st = normalizeStatus(lead.status);
+          const stLabel = statusLabel(st);
+          const StatusIco = statusIconByKey(st);
 
-            <p className="text-xs text-slate-500">
-              {lead.cargo || "Cargo não informado"}
-            </p>
+          return (
+            <button
+              key={lead.id}
+              onClick={() => onSelect(lead)}
+              className="
+                group
+                bg-gradient-to-br from-white to-[#E0F2FE]
+                border border-[#BFDBFE]
+                rounded-2xl shadow-sm
+                hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+                hover:-translate-y-[2px]
+                transition-all duration-300
+                p-5 text-left
+              "
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base font-extrabold text-slate-900 truncate">
+                    {lead.nome}
+                  </h3>
 
-            <p className="text-xs text-slate-500 mt-1">
-              Perfil: <span className="font-medium">{lead.perfil}</span>
-            </p>
+                  <p className="text-xs text-slate-500 mt-1 truncate">
+                    {lead.cargo || "Cargo não informado"}
+                  </p>
+                </div>
 
-            <p className="text-xs text-slate-500 mt-1">
-              Status:{" "}
-              <span className="font-semibold text-slate-700">
-                {statusLabel(normalizeStatus(lead.status))}
-              </span>
-            </p>
+                <span
+                  className="
+                    w-10 h-10 rounded-2xl
+                    bg-white/70 border border-[#BFDBFE]
+                    flex items-center justify-center
+                    shadow-sm
+                    group-hover:shadow transition
+                  "
+                  title="Status"
+                >
+                  <StatusIco size={16} className="text-[#0A2A5F]" />
+                </span>
+              </div>
 
-            <p className="text-[11px] text-blue-600 mt-3 break-all">
-              {lead.linkedin_url}
-            </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span
+                  className="
+                    text-[11px] px-2.5 py-1 rounded-full
+                    bg-white/70 border border-[#BFDBFE]
+                    text-slate-700
+                  "
+                >
+                  Perfil: <strong className="uppercase">{lead.perfil}</strong>
+                </span>
 
-            <p className="text-[10px] text-slate-400 mt-3">
-              Criado em {new Date(lead.criado_em).toLocaleDateString("pt-BR")}
-            </p>
-          </div>
-        ))}
+                <span
+                  className={`
+                    text-[11px] px-2.5 py-1 rounded-full border
+                    ${STATUS_COLORS[st] ?? "bg-slate-100 text-slate-700 border-slate-300"}
+                  `}
+                >
+                  Status: <strong>{stLabel}</strong>
+                </span>
+              </div>
+
+              {/* LINK PROFISSIONAL */}
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <span
+                  className="
+                    inline-flex items-center gap-2
+                    text-[11px] font-semibold
+                    px-3 py-1.5 rounded-xl
+                    border border-[#BFDBFE]
+                    bg-white/70 text-[#0A2A5F]
+                    shadow-sm
+                    max-w-[70%]
+                  "
+                  title={lead.linkedin_url}
+                >
+                  <Linkedin size={14} />
+                  <span className="truncate">LinkedIn</span>
+                </span>
+
+                <span className="text-[10px] text-slate-500">
+                  Criado em {formatDateBR(lead.criado_em)}
+                </span>
+              </div>
+
+              <div className="mt-3 flex justify-end">
+                <span
+                  className="
+                    opacity-0 group-hover:opacity-100
+                    transition text-[#0A2A5F]
+                  "
+                  title="Abrir detalhes"
+                >
+                  <ArrowUpRight size={16} />
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -994,57 +1556,120 @@ function InteracoesSection({
   onSelect: (i: Interacao) => void;
 }) {
   return (
-    <div className="space-y-4 pt-4">
+    <div className="space-y-4 pt-2">
       {interacoes.length === 0 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <div
+          className="
+            bg-white/70 border border-[#BFDBFE]
+            rounded-2xl p-6
+          "
+        >
           <p className="text-slate-500 text-sm">
             Nenhuma interação registrada ainda.
           </p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {interacoes.map((it) => (
-          <button
-            key={it.id}
-            onClick={() => onSelect(it)}
-            className="
-              bg-white
-              border border-slate-200
-              rounded-2xl shadow-sm
-              hover:shadow-md
-              hover:-translate-y-[1px]
-              transition-all duration-300
-              p-6 text-left space-y-1
-            "
-          >
-            <p className="text-xs font-semibold text-slate-700">
-              Lead:{" "}
-              <span className="font-bold text-slate-900">
-                {it.lead?.nome || "Não informado"}
-              </span>
-            </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {interacoes.map((it) => {
+          const st = (it.status || "").trim().toLowerCase();
+          const statusKey = normalizeStatus(st);
+          const statusText = statusLabel(statusKey);
+          const StatusIco = statusIconByKey(statusKey);
 
-            <p className="text-xs font-medium text-slate-700 mt-2">
-              Status:{" "}
-              <span className="font-semibold text-slate-900">{it.status}</span>
-            </p>
+          return (
+            <button
+              key={it.id}
+              onClick={() => onSelect(it)}
+              className="
+                group
+                bg-gradient-to-br from-white to-[#E0F2FE]
+                border border-[#BFDBFE]
+                rounded-2xl shadow-md
+                hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+                hover:-translate-y-[2px]
+                transition-all duration-300
+                p-5 text-left
+                text-[#1E293B]
+              "
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Lead</p>
+                  <p className="text-base font-extrabold text-slate-900 truncate">
+                    {it.lead?.nome || "Não informado"}
+                  </p>
+                </div>
 
-            <p className="text-xs text-slate-500 mt-1">
-              Canal: {it.canal || "Não informado"}
-            </p>
+                <span
+                  className="
+                    w-10 h-10 rounded-2xl
+                    bg-white/70 border border-[#BFDBFE]
+                    flex items-center justify-center
+                    shadow-sm
+                    group-hover:shadow transition
+                  "
+                >
+                  <StatusIco size={16} className="text-[#0A2A5F]" />
+                </span>
+              </div>
 
-            {it.observacao && (
-              <p className="text-xs text-slate-500 mt-3 line-clamp-3">
-                {it.observacao}
-              </p>
-            )}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span
+                  className={`
+                    text-[11px] px-2.5 py-1 rounded-full border
+                    ${STATUS_COLORS[statusKey] ?? "bg-slate-100 text-slate-700 border-slate-300"}
+                  `}
+                >
+                  Status: <strong>{statusText}</strong>
+                </span>
 
-            <p className="text-[10px] text-slate-400 mt-4">
-              Registrado em {new Date(it.criado_em).toLocaleDateString("pt-BR")}
-            </p>
-          </button>
-        ))}
+                <span
+                  className="
+                    text-[11px] px-2.5 py-1 rounded-full
+                    bg-white/70 border border-[#BFDBFE]
+                    text-slate-700
+                  "
+                >
+                  Canal: <strong>{canalLabel(it.canal)}</strong>
+                </span>
+              </div>
+
+              {it.observacao && (
+                <div
+                  className="
+                    mt-4
+                    rounded-xl
+                    border border-[#BFDBFE]
+                    bg-white/60
+                    p-3
+                  "
+                >
+                  <p className="text-xs text-slate-500">Observação</p>
+                  <p className="text-sm text-slate-700 line-clamp-3 mt-1">
+                    {it.observacao}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-[10px] text-slate-500">
+                  {formatDateBR(it.criado_em)}
+                </span>
+
+                <span
+                  className="
+                    opacity-0 group-hover:opacity-100
+                    transition text-[#0A2A5F]
+                  "
+                  title="Abrir detalhes"
+                >
+                  <ArrowUpRight size={16} />
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
