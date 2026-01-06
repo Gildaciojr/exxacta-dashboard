@@ -134,9 +134,9 @@ const STATUS_COLORS: Record<string, string> = {
 /* ===================== PAGE ===================== */
 
 export default function DashboardPage() {
-  const [view, setView] = useState<
-    "home" | "empresas" | "leads" | "interacoes"
-  >("home");
+  const [view, setView] = useState<"home" | "empresas" | "leads" | "interacoes">(
+    "home"
+  );
 
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -418,158 +418,234 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* ===================== HEADER TOP (mais enterprise) ===================== */}
       <div
-  className="
-    exx-card flex items-center justify-between gap-2
-    bg-gradient-to-br from-white to-[#E0F2FE]
-    border border-[#BFDBFE]
-    rounded-x20 shadow-md
-    hover:shadow-[0_0_20px_50px_rgba(191,219,254,0.65)]
-    hover:-translate-y-1 hover:scale-[1.00]
-    transition-all duration-300
-    px-6 py-4
-  "
->
-  <span className="text-xl font-bold text-[#0A2A5F] tracking-wide">
-    Dashboard
-  </span>
+        className="
+          flex flex-col gap-4
+          bg-white/90 backdrop-blur-xl
+          border border-slate-200
+          rounded-2xl shadow-sm
+          px-6 py-5
+        "
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Dashboard
+            </h1>
+            <p className="text-sm text-slate-500">
+              Visão geral do funil, empresas, leads e atividades registradas.
+            </p>
+          </div>
 
-  <LogoutButton />
-</div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setOpenAdd(true)}
+              className="
+                hidden md:flex items-center gap-2
+                px-4 py-2 rounded-xl
+                bg-gradient-to-r from-[#0A2A5F] to-[#0F4C81]
+                text-white font-semibold text-sm
+                shadow-md hover:shadow-lg
+                hover:scale-[1.02] active:scale-[0.99]
+                transition-all
+              "
+            >
+              ➕ Adicionar Cliente / Empresa
+            </button>
 
+            <LogoutButton />
+          </div>
+        </div>
 
-      {/* ===================== CARDS ===================== */}
+        {/* Ações mobile (mantém funcional, sem “sumir”) */}
+        <div className="md:hidden">
+          <button
+            onClick={() => setOpenAdd(true)}
+            className="
+              w-full flex items-center justify-center gap-2
+              px-4 py-3 rounded-xl
+              bg-gradient-to-r from-[#0A2A5F] to-[#0F4C81]
+              text-white font-semibold text-sm
+              shadow-md hover:shadow-lg
+              transition-all
+            "
+          >
+            ➕ Adicionar Cliente / Empresa
+          </button>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* ===================== CARDS (mais alinhados) ===================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card
           title="Empresas registradas"
           value={empresas.length}
           onClick={() => setView("empresas")}
+          hint="Gerencie empresas cadastradas"
         />
 
         <Card
           title="Leads coletados"
           value={leads.length}
           onClick={() => setView("leads")}
+          hint="Veja o pipeline e detalhes"
+          featured
         />
 
         <Card
           title="Interações registradas"
           value={interacoes.length}
           onClick={() => setView("interacoes")}
+          hint="Histórico e registros"
+        />
+
+        <Card
+          title="E-mail Automático"
+          value={0}
+          onClick={() => setOpenEmailModal(true)}
+          hint="Configurar template e ativação"
+          actionLabel="Configurar"
         />
       </div>
-      <Card
-        title="E-mail Automático"
-        value={0}
-        onClick={() => setOpenEmailModal(true)}
-      />
 
-      <div className="flex justify-end mt-4">
-        <button
-          onClick={() => setOpenAdd(true)}
-          className="
-      flex items-center gap-2
-      bg-gradient-to-br from-white to-[#E0F2FE]
-      border border-[#BFDBFE]
-      rounded-xl shadow-md
-      hover:shadow-lg hover:translate-y-[-2px] hover:scale-[1.02]
-      transition-all duration-300
-      px-5 py-3
-      text-[#0A2A5F] font-semibold
-    "
-        >
-          ➕ Adicionar Cliente / Empresa
-        </button>
+      {/* ===================== NAV (seu mesmo view, só mais claro) ===================== */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+          <button
+            onClick={() => setView("home")}
+            className={`
+              px-4 py-2 rounded-lg text-sm font-semibold transition-all
+              ${view === "home" ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-50"}
+            `}
+          >
+            Visão geral
+          </button>
+          <button
+            onClick={() => setView("leads")}
+            className={`
+              px-4 py-2 rounded-lg text-sm font-semibold transition-all
+              ${view === "leads" ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-50"}
+            `}
+          >
+            Leads
+          </button>
+          <button
+            onClick={() => setView("empresas")}
+            className={`
+              px-4 py-2 rounded-lg text-sm font-semibold transition-all
+              ${view === "empresas" ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-50"}
+            `}
+          >
+            Empresas
+          </button>
+          <button
+            onClick={() => setView("interacoes")}
+            className={`
+              px-4 py-2 rounded-lg text-sm font-semibold transition-all
+              ${view === "interacoes" ? "bg-slate-900 text-white shadow" : "text-slate-600 hover:bg-slate-50"}
+            `}
+          >
+            Interações
+          </button>
+        </div>
+
+        {view === "interacoes" && (
+          <button
+            onClick={() => setOpenNovaInteracaoModal(true)}
+            className="
+              px-4 py-2 rounded-xl text-sm font-semibold
+              bg-white border border-slate-200
+              hover:bg-slate-50 hover:shadow-sm
+              transition-all
+            "
+          >
+            + Nova interação
+          </button>
+        )}
       </div>
 
+      {/* ===================== ADD ENTITY MODAL ===================== */}
       <AddEntityModal open={openAdd} onClose={() => setOpenAdd(false)} />
 
       {/* ===================== CONTENT ===================== */}
       {view === "home" && (
-        <p className="text-slate-500 text-sm">
-          Selecione um card para visualizar os dados.
-        </p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <p className="text-slate-500 text-sm">
+            Selecione um card acima ou use as abas para navegar.
+          </p>
+        </div>
       )}
+
       {view === "empresas" && (
         <EmpresasSection empresas={empresas} onSelect={abrirEmpresa} />
       )}
+
       {view === "leads" && (
         <>
-          {/* ======= PIPELINE HEADER / FILTRO ======= */}
-          <div
-            className="
-  bg-gradient-to-br from-white to-[#E0F2FE]
-  border border-[#BFDBFE]
-  rounded-xl shadow-md
-  hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-  hover:-translate-y-1 hover:scale-[1.02]
-  transition-all duration-300
-  p-6 text-left space-y-1
-  text-[#1E293B]
-"
-          >
-            <div className="space-y-1">
-              <h2 className="exx-card">Pipeline de Leads</h2>
-              <p className="text-xs text-slate-500">
-                Clique em um lead para ver detalhes. Filtre por status e
-                visualize em colunas.
-              </p>
-            </div>
+          {/* ======= PIPELINE HEADER / FILTRO (mais limpo e premium) ======= */}
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+              <div className="space-y-1">
+                <h2 className="text-xl font-bold text-slate-900">
+                  Pipeline de Leads
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Clique em um lead para ver detalhes. Filtre por status e
+                  visualize em colunas.
+                </p>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-slate-600">
-                Filtrar:
-              </label>
-              <select
-                value={pipelineStatus}
-                onChange={(e) => setPipelineStatus(e.target.value)}
-                className="
-                  rounded-lg border px-3 py-2 text-sm bg-white
-                  focus:outline-none focus:ring-2 focus:ring-slate-900/40
-                "
-              >
-                <option value="todos">Todos</option>
-                {PIPELINE_STATUSES.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-slate-600">
+                  Filtrar:
+                </label>
+                <select
+                  value={pipelineStatus}
+                  onChange={(e) => setPipelineStatus(e.target.value)}
+                  className="
+                    rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white
+                    focus:outline-none focus:ring-2 focus:ring-slate-900/20
+                  "
+                >
+                  <option value="todos">Todos</option>
+                  {PIPELINE_STATUSES.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
           {/* ======= PIPELINE COLUNAS ======= */}
           <div className="w-full overflow-x-auto pt-2">
-            <div className="min-w-245 grid grid-cols-7 gap-3">
+            {/* melhor: min-width responsivo sem classe inválida */}
+            <div className="min-w-[1100px] grid grid-cols-7 gap-3">
               {pipelineColumns.map((col) => (
                 <div
                   key={col.key}
                   className="
-          rounded-xl border
-          bg-gradient-to-br from-white to-[#E0F2FE]
-          border-[#BFDBFE]
-          shadow-sm
-          hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-          hover:-translate-y-1 hover:scale-[1.01]
-          transition-all duration-300
-        "
+                    rounded-2xl border border-slate-200
+                    bg-white
+                    shadow-sm
+                    hover:shadow-md
+                    transition-all
+                  "
                 >
                   {/* Cabeçalho da coluna */}
-                  <div className="px-3 py-3 border-b border-[#BFDBFE]/60 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-[#0A2A5F]">
+                  <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-800">
                       {col.label}
                     </p>
 
                     {/* Badge de quantidade com cor por status */}
                     <span
                       className={`
-              text-[11px] px-2 py-1 rounded-full border
-              ${
-                STATUS_COLORS[col.key] ??
-                "bg-slate-100 text-slate-700 border-slate-300"
-              }
-            `}
+                        text-[11px] px-2 py-1 rounded-full border
+                        ${STATUS_COLORS[col.key] ?? "bg-slate-100 text-slate-700 border-slate-300"}
+                      `}
                     >
                       {col.leads.length}
                     </span>
@@ -578,7 +654,9 @@ export default function DashboardPage() {
                   {/* Conteúdo da coluna */}
                   <div className="p-3 space-y-2">
                     {col.leads.length === 0 && (
-                      <p className="text-xs text-slate-400">Sem leads aqui.</p>
+                      <p className="text-xs text-slate-400 px-1">
+                        Sem leads aqui.
+                      </p>
                     )}
 
                     {col.leads.map((lead) => (
@@ -586,17 +664,17 @@ export default function DashboardPage() {
                         key={lead.id}
                         onClick={() => abrirLead(lead)}
                         className="
-                w-full text-left
-                rounded-lg
-                bg-gradient-to-br from-white/90 to-[#E0F2FE]
-                border border-[#BFDBFE]
-                hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
-                hover:-translate-y-1 hover:scale-[1.01]
-                transition-all duration-300
-                px-3 py-2
-              "
+                          w-full text-left
+                          rounded-xl
+                          bg-slate-50
+                          border border-slate-200
+                          hover:bg-white
+                          hover:shadow-sm
+                          transition-all
+                          px-3 py-2
+                        "
                       >
-                        <p className="text-sm font-medium text-slate-900 line-clamp-1">
+                        <p className="text-sm font-semibold text-slate-900 line-clamp-1">
                           {lead.nome}
                         </p>
 
@@ -609,7 +687,7 @@ export default function DashboardPage() {
                             {lead.perfil}
                           </span>
 
-                          <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                          <span className="text-[10px] px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700">
                             {statusLabel(normalizeStatus(lead.status))}
                           </span>
                         </div>
@@ -622,43 +700,59 @@ export default function DashboardPage() {
           </div>
 
           {/* ======= SUA LISTA ORIGINAL (mantida) ======= */}
-          <LeadsSection leads={leadsNormalized} onSelect={abrirLead} />
+          <div className="pt-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">
+                Lista completa (detalhada)
+              </h3>
+              <span className="text-xs text-slate-400">
+                Total: {leadsNormalized.length}
+              </span>
+            </div>
+            <LeadsSection leads={leadsNormalized} onSelect={abrirLead} />
+          </div>
         </>
       )}
+
       {view === "interacoes" && (
         <>
-          <div className="flex items-center justify-between pt-4">
-            <h2 className="exx-card w-full">Interações registradas</h2>
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-1">
+                <h2 className="text-xl font-bold text-slate-900">
+                  Interações registradas
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Histórico de ações realizadas com os leads.
+                </p>
+              </div>
 
-            <button
-              onClick={() => setOpenNovaInteracaoModal(true)}
-              className="
-  bg-gradient-to-br from-white to-[#E0F2FE]
-  border border-[#BFDBFE]
-  rounded-xl shadow-md
-  hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-  hover:-translate-y-1 hover:scale-[1.02]
-  transition-all duration-300
-  p-6 text-left space-y-1
-  text-[#1E293B]
-"
-            >
-              Nova interação
-            </button>
+              <button
+                onClick={() => setOpenNovaInteracaoModal(true)}
+                className="
+                  px-4 py-2 rounded-xl text-sm font-semibold
+                  bg-slate-900 text-white
+                  hover:bg-slate-800
+                  shadow-sm hover:shadow
+                  transition-all
+                "
+              >
+                + Nova interação
+              </button>
+            </div>
           </div>
 
-          <InteracoesSection
-            interacoes={interacoes}
-            onSelect={abrirInteracao}
-          />
+          <InteracoesSection interacoes={interacoes} onSelect={abrirInteracao} />
         </>
       )}
+
       {/* ===================== MODAIS ===================== */}
       <EmpresaModal
         open={openEmpresaModal}
         onClose={() => setOpenEmpresaModal(false)}
         empresa={empresaSelecionada}
       />
+
       <LeadModal
         open={openLeadModal}
         lead={leadSelecionado}
@@ -672,15 +766,18 @@ export default function DashboardPage() {
           void loadData();
         }}
       />
+
       <InteracaoModal
         open={openInteracaoModal}
         onClose={() => setOpenInteracaoModal(false)}
         interacao={interacaoSelecionada}
       />
+
       <EmailTemplateModal
         open={openEmailModal}
         onClose={() => setOpenEmailModal(false)}
       />
+
       <InteracaoCreateModal
         open={openNovaInteracaoModal}
         onClose={() => setOpenNovaInteracaoModal(false)}
@@ -697,27 +794,65 @@ function Card({
   title,
   value,
   onClick,
+  hint,
+  actionLabel,
+  featured,
 }: {
   title: string;
   value: number;
   onClick: () => void;
+  hint?: string;
+  actionLabel?: string;
+  featured?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="
-  bg-gradient-to-br from-white to-[#E0F2FE]
-  border border-[#BFDBFE]
-  rounded-xl shadow-md
-  hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-  hover:-translate-y-1 hover:scale-[1.02]
-  transition-all duration-300
-  p-6 text-left space-y-1
-  text-[#1E293B]
-"
+      className={`
+        relative overflow-hidden
+        rounded-2xl border
+        ${featured ? "border-[#0A2A5F]/25" : "border-slate-200"}
+        ${featured ? "bg-gradient-to-br from-[#0A2A5F] to-[#0F4C81] text-white" : "bg-white text-slate-900"}
+        shadow-sm hover:shadow-md
+        hover:-translate-y-[1px]
+        transition-all duration-300
+        p-5 text-left space-y-1
+      `}
     >
-      <h3 className="text-sm font-medium text-slate-500">{title}</h3>
-      <p className="text-3xl font-bold mt-2">{value}</p>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className={`text-sm font-semibold ${featured ? "text-white/90" : "text-slate-600"}`}>
+          {title}
+        </h3>
+
+        {actionLabel && (
+          <span
+            className={`
+              text-[10px] px-2 py-1 rounded-full border
+              ${featured ? "border-white/20 bg-white/10 text-white/90" : "border-slate-200 bg-slate-50 text-slate-600"}
+            `}
+          >
+            {actionLabel}
+          </span>
+        )}
+      </div>
+
+      <p className={`text-3xl font-bold mt-2 ${featured ? "text-white" : "text-slate-900"}`}>
+        {value}
+      </p>
+
+      {hint && (
+        <p className={`text-xs mt-1 ${featured ? "text-white/70" : "text-slate-500"}`}>
+          {hint}
+        </p>
+      )}
+
+      {/* detalhe visual leve */}
+      <div
+        className={`
+          pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full
+          ${featured ? "bg-white/10" : "bg-slate-100"}
+        `}
+      />
     </button>
   );
 }
@@ -732,37 +867,46 @@ function EmpresasSection({
   onSelect: (e: Empresa) => void;
 }) {
   return (
-    <div className="space-y-4 pt-4">
-      <h2 className="text-xl font-semibold text-[#0A2A5F]">
-        Empresas registradas
-      </h2>
+    <div className="space-y-4 pt-2">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+        <h2 className="text-xl font-bold text-slate-900">
+          Empresas registradas
+        </h2>
+        <p className="text-xs text-slate-500 mt-1">
+          Clique em uma empresa para abrir o modal de detalhes/edição.
+        </p>
+      </div>
 
       {empresas.length === 0 && (
-        <p className="text-slate-500 text-sm">
-          Nenhuma empresa cadastrada ainda.
-        </p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <p className="text-slate-500 text-sm">
+            Nenhuma empresa cadastrada ainda.
+          </p>
+        </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {empresas.map((emp) => (
           <button
             key={emp.id}
             onClick={() => onSelect(emp)}
             className="
-bg-gradient-to-br from-white to-[#E0F2FE]
-border border-[#BFDBFE]
-rounded-lg shadow-sm
-hover:shadow-[0_0_10px_3px_rgba(191,219,254,0.75)]
-hover:-translate-y-1 hover:scale-[1.02]
-transition-all duration-300
-p-4 text-left text-[#1E293B]
-"
+              bg-white
+              border border-slate-200
+              rounded-2xl shadow-sm
+              hover:shadow-md
+              hover:-translate-y-[1px]
+              transition-all duration-300
+              p-5 text-left
+            "
           >
-            <h3 className="font-medium">{emp.nome}</h3>
-            <p className="text-xs text-slate-500">
+            <h3 className="font-semibold text-slate-900 line-clamp-1">
+              {emp.nome}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
               {emp.cidade || "Sem cidade"}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 mt-1">
               Tamanho: {emp.tamanho.replace("_", " até ")}
             </p>
           </button>
@@ -782,49 +926,55 @@ function LeadsSection({
   onSelect: (lead: Lead) => void;
 }) {
   return (
-    <div className="space-y-4 pt-6">
-      <h2 className="text-xl font-semibold">Leads coletados</h2>
-
+    <div className="space-y-4 pt-4">
       {leads.length === 0 && (
-        <p className="text-slate-500 text-sm">Nenhum lead cadastrado ainda.</p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <p className="text-slate-500 text-sm">
+            Nenhum lead cadastrado ainda.
+          </p>
+        </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {leads.map((lead) => (
           <div
             key={lead.id}
             onClick={() => onSelect(lead)}
             className="
-  bg-gradient-to-br from-white to-[#E0F2FE]
-  border border-[#BFDBFE]
-  rounded-xl shadow-sm
-  hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-  hover:-translate-y-1 hover:scale-[1.02]
-  transition-all duration-300
-  p-6 text-left space-y-1
-  text-[#1E293B]
-"
+              cursor-pointer
+              bg-white
+              border border-slate-200
+              rounded-2xl shadow-sm
+              hover:shadow-md
+              hover:-translate-y-[1px]
+              transition-all duration-300
+              p-6 text-left space-y-1
+            "
           >
-            <h3 className="font-medium">{lead.nome}</h3>
+            <h3 className="font-semibold text-slate-900 line-clamp-1">
+              {lead.nome}
+            </h3>
 
             <p className="text-xs text-slate-500">
               {lead.cargo || "Cargo não informado"}
             </p>
 
-            <p className="text-xs text-slate-500 mt-1">Perfil: {lead.perfil}</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Perfil: <span className="font-medium">{lead.perfil}</span>
+            </p>
 
             <p className="text-xs text-slate-500 mt-1">
               Status:{" "}
-              <span className="font-medium">
+              <span className="font-semibold text-slate-700">
                 {statusLabel(normalizeStatus(lead.status))}
               </span>
             </p>
 
-            <p className="text-[11px] text-blue-600 mt-2 break-all">
+            <p className="text-[11px] text-blue-600 mt-3 break-all">
               {lead.linkedin_url}
             </p>
 
-            <p className="text-[10px] text-slate-400 mt-2">
+            <p className="text-[10px] text-slate-400 mt-3">
               Criado em {new Date(lead.criado_em).toLocaleDateString("pt-BR")}
             </p>
           </div>
@@ -846,33 +996,38 @@ function InteracoesSection({
   return (
     <div className="space-y-4 pt-4">
       {interacoes.length === 0 && (
-        <p className="text-slate-500 text-sm">
-          Nenhuma interação registrada ainda.
-        </p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <p className="text-slate-500 text-sm">
+            Nenhuma interação registrada ainda.
+          </p>
+        </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {interacoes.map((it) => (
           <button
             key={it.id}
             onClick={() => onSelect(it)}
             className="
-  bg-gradient-to-br from-white to-[#E0F2FE]
-  border border-[#BFDBFE]
-  rounded-xl shadow-md
-  hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-  hover:-translate-y-1 hover:scale-[1.02]
-  transition-all duration-300
-  p-6 text-left space-y-1
-  text-[#1E293B]
-"
+              bg-white
+              border border-slate-200
+              rounded-2xl shadow-sm
+              hover:shadow-md
+              hover:-translate-y-[1px]
+              transition-all duration-300
+              p-6 text-left space-y-1
+            "
           >
-            <p className="text-xs font-medium text-slate-700">
-              Lead: {it.lead?.nome || "Não informado"}
+            <p className="text-xs font-semibold text-slate-700">
+              Lead:{" "}
+              <span className="font-bold text-slate-900">
+                {it.lead?.nome || "Não informado"}
+              </span>
             </p>
 
-            <p className="text-xs font-medium text-slate-700 mt-1">
-              Status: {it.status}
+            <p className="text-xs font-medium text-slate-700 mt-2">
+              Status:{" "}
+              <span className="font-semibold text-slate-900">{it.status}</span>
             </p>
 
             <p className="text-xs text-slate-500 mt-1">
@@ -880,12 +1035,12 @@ function InteracoesSection({
             </p>
 
             {it.observacao && (
-              <p className="text-xs text-slate-500 mt-2 line-clamp-3">
+              <p className="text-xs text-slate-500 mt-3 line-clamp-3">
                 {it.observacao}
               </p>
             )}
 
-            <p className="text-[10px] text-slate-400 mt-2">
+            <p className="text-[10px] text-slate-400 mt-4">
               Registrado em {new Date(it.criado_em).toLocaleDateString("pt-BR")}
             </p>
           </button>
