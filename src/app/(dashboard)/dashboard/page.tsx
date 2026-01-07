@@ -1,16 +1,19 @@
 // src\app\(dashboard)\dashboard\page.tsx
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { EmpresaModal } from "@/components/empresa-modal";
 import { LeadModal } from "@/components/lead-modal";
+import { Lead, LeadStatus } from "@/types/lead";
 import { InteracaoModal } from "@/components/interacao-modal";
 import { InteracaoCreateModal } from "@/components/interacao-create-modal";
 import { useRealtimeLeadsInteracoes } from "@/hooks/useRealtimeLeadsInteracoes";
 import { EmailTemplateModal } from "@/components/EmailTemplateModal";
 import { AddEntityModal } from "@/components/add-entity-modal";
 import { LogoutButton } from "@/components/LogoutButton";
+
+import { AnimatePresence, motion } from "framer-motion";
 
 import {
   Building2,
@@ -40,21 +43,6 @@ type Empresa = {
   criado_em: string;
   site: string | null;
   linkedin_url: string | null;
-};
-
-type Lead = {
-  id: string;
-  nome: string;
-  cargo: string | null;
-  linkedin_url: string;
-  email: string | null;
-  telefone: string | null;
-  perfil: string;
-  empresa_id: string | null;
-  criado_em: string;
-
-  // ✅ status do LEAD no banco (usado no pipeline visual)
-  status?: string | null;
 };
 
 type Interacao = {
@@ -87,26 +75,30 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isRealtimeLeadRow(value: unknown): value is RealtimeLeadRow {
-  return isObject(value) && typeof value.id === "string";
+  return isObject(value) && typeof (value as { id?: unknown }).id === "string";
 }
 
 function isRealtimeInteracaoRow(value: unknown): value is RealtimeInteracaoRow {
   return (
     isObject(value) &&
-    typeof value.id === "string" &&
-    typeof value.lead_id === "string" &&
-    typeof value.status === "string"
+    typeof (value as { id?: unknown }).id === "string" &&
+    typeof (value as { lead_id?: unknown }).lead_id === "string" &&
+    typeof (value as { status?: unknown }).status === "string"
   );
 }
 
 /* ===================== PIPELINE CONFIG (STATUS DO LEAD) ===================== */
-
+/**
+ * ✅ IMPORTANTE (CORREÇÃO DEFINITIVA)
+ * - O Lead.status SEMPRE é LeadStatus (domínio/banco)
+ * - Pipeline é apenas visual/UX e usa as chaves existentes do LeadStatus
+ */
 const PIPELINE_STATUSES = [
   { key: "novo", label: "Novo" },
 
   // intermediários (status do lead)
-  { key: "contato_realizado", label: "Contato realizado" },
-  { key: "em_contato", label: "Em contato" },
+  { key: "email_enviado", label: "Contato realizado" },
+  { key: "contatado", label: "Em contato" },
   { key: "interessado", label: "Interessado" },
   { key: "qualificado", label: "Qualificado" },
 
@@ -116,21 +108,45 @@ const PIPELINE_STATUSES = [
   { key: "perdido", label: "Perdido" },
 ] as const;
 
-function normalizeStatus(value?: string | null) {
-  const v = (value || "").trim().toLowerCase();
-  if (!v) return "novo";
+type PipelineStatusKey = LeadStatus;
 
-  // Mapa visual — não altera o banco
-  const map: Record<string, string> = {
-    email_enviado: "contato_realizado", // Dia 1
-    email_enviado_3dias: "contato_realizado", // Dia 3
-    email_enviado_7dias: "contato_realizado", // Dia 7
-    followup: "em_contato",
-    respondido: "interessado",
+function isPipelineStatusKey(value: string): value is PipelineStatusKey {
+  return (PIPELINE_STATUSES as ReadonlyArray<{ key: LeadStatus; label: string }>).some(
+    (s) => s.key === value
+  );
+}
+
+function normalizeStatus(value: LeadStatus | string | null | undefined): LeadStatus {
+  const v = (value || "").trim().toLowerCase();
+
+  const map: Record<string, LeadStatus> = {
+    email_enviado: "email_enviado",
+    follow_up: "contatado",
+    respondeu: "interessado",
     negociacao: "qualificado",
   };
 
-  return map[v] ?? v;
+  if (v in map) return map[v];
+
+  if (
+    [
+      "novo",
+      "email_enviado",
+      "contatado",
+      "follow_up",
+      "respondeu",
+      "interessado",
+      "negociacao",
+      "qualificado",
+      "frio",
+      "fechado",
+      "perdido",
+    ].includes(v)
+  ) {
+    return v as LeadStatus;
+  }
+
+  return "novo";
 }
 
 function statusLabel(status: string) {
@@ -141,8 +157,8 @@ function statusLabel(status: string) {
 // 🎨 Cores do pipeline por status
 const STATUS_COLORS: Record<string, string> = {
   novo: "bg-blue-100 text-blue-700 border-blue-300",
-  contato_realizado: "bg-sky-100 text-sky-700 border-sky-300",
-  em_contato: "bg-indigo-100 text-indigo-700 border-indigo-300",
+  email_enviado: "bg-sky-100 text-sky-700 border-sky-300",
+  contatado: "bg-indigo-100 text-indigo-700 border-indigo-300",
   interessado: "bg-purple-100 text-purple-700 border-purple-300",
   qualificado: "bg-green-100 text-green-700 border-green-300",
   frio: "bg-gray-200 text-gray-700 border-gray-400",
@@ -160,7 +176,7 @@ function canalLabel(canal?: string | null) {
     reuniao: "Reunião",
     automacao_n8n: "Automação (n8n)",
   };
-  return map[v] ?? canal!;
+  return map[v] ?? (canal as string);
 }
 
 function statusIconByKey(key: string) {
@@ -169,6 +185,19 @@ function statusIconByKey(key: string) {
   if (k === "perdido") return BadgeAlert;
   if (k === "frio") return BadgeHelp;
   return CalendarClock;
+}
+
+/* ===================== STATUS UPDATE (FRONT → BACKEND) ===================== */
+
+async function updateLeadStatus(leadId: string, status: LeadStatus) {
+  await fetch("/api/status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      lead_id: leadId,
+      status,
+    }),
+  });
 }
 
 function formatDateBR(iso: string) {
@@ -224,6 +253,8 @@ export default function DashboardPage() {
   const [leadSelecionado, setLeadSelecionado] = useState<Lead | null>(null);
   const [openLeadModal, setOpenLeadModal] = useState(false);
 
+  // ✅ Sync pipeline → modal (quando status muda no card/realtime e o modal está aberto)
+
   // ===== INTERAÇÃO MODAL (VISUALIZAR) =====
   const [interacaoSelecionada, setInteracaoSelecionada] =
     useState<Interacao | null>(null);
@@ -237,6 +268,19 @@ export default function DashboardPage() {
 
   // ===== PIPELINE: FILTRO POR STATUS DO LEAD =====
   const [pipelineStatus, setPipelineStatus] = useState<string>("todos");
+
+  async function onChangeLeadStatus(lead: Lead, newStatus: LeadStatus) {
+    const current = normalizeStatus(lead.status);
+    if (current === newStatus) return;
+
+    // 1️⃣ Atualiza backend (gera interação automaticamente)
+    await updateLeadStatus(lead.id, newStatus);
+
+    // 2️⃣ UX otimista (move o card instantaneamente)
+    setLeads((prev) =>
+      prev.map((l) => (l.id === lead.id ? { ...l, status: newStatus } : l))
+    );
+  }
 
   // ===== ABRIR MODAIS =====
   function abrirEmpresa(e: Empresa) {
@@ -257,10 +301,7 @@ export default function DashboardPage() {
   // ===== LOAD DATA (usado no mount + onCreated do modal de interação) =====
   async function loadData() {
     const { data: empresasData } = await supabase.from("empresas").select("*");
-
-    // ✅ aqui esperamos o campo status existir no banco (ou vir null)
     const { data: leadsData } = await supabase.from("leads").select("*");
-
     const { data: interacoesData } = await supabase
       .from("interacoes")
       .select(
@@ -288,9 +329,7 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================================================
-     ✅ REALTIME (SEM REFRESH) — PREMIUM (B)
-     - Interação insert: busca a interação completa + join do lead (nome) e injeta no estado
-     - Lead insert/update: busca/mescla mantendo Lead[] consistente
+     ✅ REALTIME (SEM REFRESH)
   ========================================================= */
 
   useRealtimeLeadsInteracoes({
@@ -377,10 +416,12 @@ export default function DashboardPage() {
       if (!isRealtimeLeadRow(rowUnknown)) return;
       const row = rowUnknown;
 
-      // 1) mescla rápido (UX) + normaliza o status (move de coluna)
+      // 1) mescla rápido (UX) + normaliza o status
       setLeads((prev) =>
         prev.map((l) =>
-          l.id === row.id ? { ...l, ...row, status: normalizeStatus(row.status) } : l
+          l.id === row.id
+            ? { ...l, ...row, status: normalizeStatus(row.status) }
+            : l
         )
       );
 
@@ -393,7 +434,9 @@ export default function DashboardPage() {
 
       if (leadCompleto) {
         const item = leadCompleto as Lead;
-        setLeads((prev) => prev.map((l) => (l.id === item.id ? { ...l, ...item } : l)));
+        setLeads((prev) =>
+          prev.map((l) => (l.id === item.id ? { ...l, ...item } : l))
+        );
       }
     },
 
@@ -437,7 +480,7 @@ export default function DashboardPage() {
           perfil: row.perfil,
           empresa_id: row.empresa_id ?? null,
           criado_em: row.criado_em,
-          status: row.status ?? "novo",
+          status: normalizeStatus(row.status),
         };
 
         setLeads((prev) => {
@@ -450,14 +493,15 @@ export default function DashboardPage() {
 
   // ===== DERIVADOS DO PIPELINE (STATUS DO LEAD) =====
 
-  // Normaliza status, assumindo "novo" como fallback
-  const leadsNormalized = leads.map((l) => {
-    const s = typeof l.status === "string" ? l.status.trim().toLowerCase() : "";
-    return {
-      ...l,
-      status: s.length ? s : "novo",
-    };
-  });
+  // Normaliza status (sem quebrar tipagem)
+  const leadsNormalized = useMemo(
+    () =>
+      leads.map((l) => ({
+        ...l,
+        status: normalizeStatus(l.status),
+      })),
+    [leads]
+  );
 
   // aplica busca local (UI) + filtro de status
   const leadsSearched = useMemo(() => {
@@ -517,7 +561,12 @@ export default function DashboardPage() {
       const status = (it.status || "").toLowerCase();
       const canal = (it.canal || "").toLowerCase();
       const obs = (it.observacao || "").toLowerCase();
-      return lead.includes(q) || status.includes(q) || canal.includes(q) || obs.includes(q);
+      return (
+        lead.includes(q) ||
+        status.includes(q) ||
+        canal.includes(q) ||
+        obs.includes(q)
+      );
     });
   }, [interacoes, searchInteracoes]);
 
@@ -533,9 +582,12 @@ export default function DashboardPage() {
   }
 
   function subtitleForView() {
-    if (view === "empresas") return "Gerencie empresas e visualize detalhes com padrão corporativo.";
-    if (view === "leads") return "Pipeline e lista detalhada de leads — com filtros e status visuais.";
-    if (view === "interacoes") return "Histórico de interações registradas (manual e automações).";
+    if (view === "empresas")
+      return "Gerencie empresas e visualize detalhes com padrão corporativo.";
+    if (view === "leads")
+      return "Pipeline e lista detalhada de leads — com filtros e status visuais.";
+    if (view === "interacoes")
+      return "Histórico de interações registradas (manual e automações).";
     return "Resumo executivo da operação.";
   }
 
@@ -692,8 +744,8 @@ export default function DashboardPage() {
           "
         >
           <p className="text-slate-600 text-sm">
-            Selecione um card para visualizar os dados. O painel foi otimizado para leitura
-            rápida (padrão empresa) e com ações diretas.
+            Selecione um card para visualizar os dados. O painel foi otimizado
+            para leitura rápida (padrão empresa) e com ações diretas.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -756,8 +808,9 @@ export default function DashboardPage() {
                   Pipeline de Leads
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Clique em um lead para ver detalhes. Filtre por status e visualize em colunas.
-                  Use a busca para localizar rapidamente um nome/cargo/perfil/LinkedIn.
+                  Clique em um lead para ver detalhes. Filtre por status e
+                  visualize em colunas. Use a busca para localizar rapidamente
+                  um nome/cargo/perfil/LinkedIn.
                 </p>
               </div>
 
@@ -854,7 +907,10 @@ export default function DashboardPage() {
                       <span
                         className={`
                           text-[11px] px-2.5 py-1 rounded-full border
-                          ${STATUS_COLORS[col.key] ?? "bg-slate-100 text-slate-700 border-slate-300"}
+                          ${
+                            STATUS_COLORS[col.key] ??
+                            "bg-slate-100 text-slate-700 border-slate-300"
+                          }
                         `}
                       >
                         {col.leads.length}
@@ -871,71 +927,108 @@ export default function DashboardPage() {
                             p-3
                           "
                         >
-                          <p className="text-xs text-slate-400">Sem leads aqui.</p>
+                          <p className="text-xs text-slate-400">
+                            Sem leads aqui.
+                          </p>
                         </div>
                       )}
 
-                      {col.leads.map((lead) => (
-                        <button
-                          key={lead.id}
-                          onClick={() => abrirLead(lead)}
-                          className="
-                            group
-                            w-full text-left
-                            rounded-xl
-                            bg-gradient-to-br from-white/90 to-[#E0F2FE]
-                            border border-[#BFDBFE]
-                            hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
-                            hover:-translate-y-[2px]
-                            transition-all duration-300
-                            px-3 py-3
-                          "
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-sm font-extrabold text-slate-900 line-clamp-1">
-                                {lead.nome}
-                              </p>
-                              <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                                {lead.cargo || "Cargo não informado"}
-                              </p>
-                            </div>
-
-                            <span
+                      {/* ✅ Animação suave ao mover entre colunas (Framer Motion layout) */}
+                      <AnimatePresence initial={false}>
+                        {col.leads.map((lead) => {
+                          const st = normalizeStatus(lead.status);
+                          return (
+                            <motion.button
+                              layout
+                              layoutId={`lead-${lead.id}`}
+                              key={lead.id}
+                              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                              transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                              onClick={() => abrirLead(lead)}
                               className="
-                                opacity-0 group-hover:opacity-100
-                                transition
-                                text-[#0A2A5F]
-                              "
-                              title="Abrir detalhes"
-                            >
-                              <ArrowUpRight size={16} />
-                            </span>
-                          </div>
-
-                          <div className="mt-3 flex items-center justify-between gap-2">
-                            <span
-                              className="
-                                text-[10px] uppercase tracking-wide
-                                text-slate-600
-                                px-2 py-1 rounded-full
-                                bg-white/70 border border-[#BFDBFE]
+                                group
+                                w-full text-left
+                                rounded-xl
+                                bg-gradient-to-br from-white/90 to-[#E0F2FE]
+                                border border-[#BFDBFE]
+                                hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
+                                hover:-translate-y-[2px]
+                                transition-all duration-300
+                                px-3 py-3
                               "
                             >
-                              {lead.perfil}
-                            </span>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-extrabold text-slate-900 line-clamp-1">
+                                    {lead.nome}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                                    {lead.cargo || "Cargo não informado"}
+                                  </p>
+                                </div>
 
-                            <span
-                              className="
-                                text-[10px] px-2 py-1 rounded-full
-                                bg-slate-900 text-white
-                              "
-                            >
-                              {statusLabel(normalizeStatus(lead.status))}
-                            </span>
-                          </div>
-                        </button>
-                      ))}
+                                <span
+                                  className="
+                                    opacity-0 group-hover:opacity-100
+                                    transition
+                                    text-[#0A2A5F]
+                                  "
+                                  title="Abrir detalhes"
+                                >
+                                  <ArrowUpRight size={16} />
+                                </span>
+                              </div>
+
+                              <div className="mt-3 flex items-center justify-between gap-2">
+                                <span
+                                  className="
+                                    text-[10px] uppercase tracking-wide
+                                    text-slate-600
+                                    px-2 py-1 rounded-full
+                                    bg-white/70 border border-[#BFDBFE]
+                                  "
+                                >
+                                  {lead.perfil}
+                                </span>
+
+                                {/* ✅ DROPDOWN STATUS (CARD PIPELINE) */}
+                                <div
+                                  className="flex items-center gap-2"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  <select
+                                    value={st}
+                                    onChange={(e) => {
+                                      const next = e.target.value;
+                                      if (!isPipelineStatusKey(next)) return;
+                                      void onChangeLeadStatus(lead, next);
+                                    }}
+                                    className={`
+                                      text-[11px] px-2.5 py-1 rounded-full border
+                                      bg-white/80
+                                      focus:outline-none focus:ring-2 focus:ring-slate-900/10
+                                      ${
+                                        STATUS_COLORS[st] ??
+                                        "bg-slate-100 text-slate-700 border-slate-300"
+                                      }
+                                    `}
+                                    title="Alterar status do lead"
+                                  >
+                                    {PIPELINE_STATUSES.map((s) => (
+                                      <option key={s.key} value={s.key}>
+                                        {s.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </motion.button>
+                          );
+                        })}
+                      </AnimatePresence>
                     </div>
                   </div>
                 );
@@ -943,7 +1036,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ======= LISTA DETALHADA (PROFISSIONAL) ======= */}
+          {/* ======= LISTA DETALHADA ======= */}
           <LeadsSection
             leads={leadsSearched}
             onSelect={abrirLead}
@@ -973,7 +1066,8 @@ export default function DashboardPage() {
                 Interações registradas
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Visual executivo das interações (manual e automações). Clique para abrir detalhes.
+                Visual executivo das interações (manual e automações). Clique
+                para abrir detalhes.
               </p>
             </div>
 
@@ -1018,7 +1112,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <InteracoesSection interacoes={interacoesSearched} onSelect={abrirInteracao} />
+          <InteracoesSection
+            interacoes={interacoesSearched}
+            onSelect={abrirInteracao}
+          />
         </>
       )}
 
@@ -1034,11 +1131,9 @@ export default function DashboardPage() {
         lead={leadSelecionado}
         onClose={() => {
           setOpenLeadModal(false);
-          // 🔥 força recarregar os dados ao fechar
           void loadData();
         }}
         onUpdated={() => {
-          // 🔥 garante atualização na tela imediatamente
           void loadData();
         }}
       />
@@ -1166,7 +1261,8 @@ function EmpresasSection({
               Empresas registradas
             </h2>
             <p className="text-xs text-slate-500">
-              Clique em uma empresa para abrir detalhes e editar. Busca por nome, cidade, site ou LinkedIn.
+              Clique em uma empresa para abrir detalhes e editar. Busca por
+              nome, cidade, site ou LinkedIn.
             </p>
           </div>
 
@@ -1216,7 +1312,9 @@ function EmpresasSection({
             rounded-2xl p-6
           "
         >
-          <p className="text-slate-500 text-sm">Nenhuma empresa cadastrada ainda.</p>
+          <p className="text-slate-500 text-sm">
+            Nenhuma empresa cadastrada ainda.
+          </p>
         </div>
       )}
 
@@ -1286,7 +1384,7 @@ function EmpresasSection({
                     bg-slate-900 text-white
                     shadow-sm
                   "
-                  title={emp.site}
+                  title={emp.site ?? undefined}
                 >
                   <Globe size={14} />
                   Site
@@ -1303,7 +1401,7 @@ function EmpresasSection({
                     bg-white/70 text-[#0A2A5F]
                     shadow-sm
                   "
-                  title={emp.linkedin_url}
+                  title={emp.linkedin_url ?? undefined}
                 >
                   <Linkedin size={14} />
                   LinkedIn
@@ -1343,8 +1441,6 @@ function LeadsSection({
   searchValue: string;
   pipelineStatus: string;
 }) {
-  // aplica filtro de status (quando não for "todos") aqui também,
-  // mantendo consistência com o pipeline sem quebrar lógica existente.
   const list = useMemo(() => {
     const normalized = leads.map((l) => ({
       ...l,
@@ -1356,7 +1452,6 @@ function LeadsSection({
 
   return (
     <div className="space-y-4 pt-6">
-      {/* HEADER PREMIUM DA LISTA DETALHADA */}
       <div
         className="
           bg-gradient-to-br from-white to-[#E0F2FE]
@@ -1373,7 +1468,8 @@ function LeadsSection({
               Lista completa (detalhada)
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Visual corporativo: hierarquia de informação + badges de status. Clique para abrir o lead.
+              Visual corporativo: hierarquia de informação + badges de status.
+              Clique para abrir o lead.
             </p>
           </div>
 
@@ -1432,11 +1528,12 @@ function LeadsSection({
             rounded-2xl p-6
           "
         >
-          <p className="text-slate-500 text-sm">Nenhum lead encontrado com os filtros atuais.</p>
+          <p className="text-slate-500 text-sm">
+            Nenhum lead encontrado com os filtros atuais.
+          </p>
         </div>
       )}
 
-      {/* GRID PROFISSIONAL */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {list.map((lead) => {
           const st = normalizeStatus(lead.status);
@@ -1497,14 +1594,16 @@ function LeadsSection({
                 <span
                   className={`
                     text-[11px] px-2.5 py-1 rounded-full border
-                    ${STATUS_COLORS[st] ?? "bg-slate-100 text-slate-700 border-slate-300"}
+                    ${
+                      STATUS_COLORS[st] ??
+                      "bg-slate-100 text-slate-700 border-slate-300"
+                    }
                   `}
                 >
                   Status: <strong>{stLabel}</strong>
                 </span>
               </div>
 
-              {/* LINK PROFISSIONAL */}
               <div className="mt-4 flex items-center justify-between gap-3">
                 <span
                   className="
@@ -1516,7 +1615,7 @@ function LeadsSection({
                     shadow-sm
                     max-w-[70%]
                   "
-                  title={lead.linkedin_url}
+                  title={lead.linkedin_url ?? undefined}
                 >
                   <Linkedin size={14} />
                   <span className="truncate">LinkedIn</span>
@@ -1618,7 +1717,10 @@ function InteracoesSection({
                 <span
                   className={`
                     text-[11px] px-2.5 py-1 rounded-full border
-                    ${STATUS_COLORS[statusKey] ?? "bg-slate-100 text-slate-700 border-slate-300"}
+                    ${
+                      STATUS_COLORS[statusKey] ??
+                      "bg-slate-100 text-slate-700 border-slate-300"
+                    }
                   `}
                 >
                   Status: <strong>{statusText}</strong>

@@ -1,3 +1,16 @@
+export type LeadStatus =
+  | "novo"
+  | "email_enviado"
+  | "contatado"
+  | "follow_up"
+  | "respondeu"
+  | "interessado"
+  | "negociacao"
+  | "qualificado"
+  | "frio"
+  | "fechado"
+  | "perdido";
+
 export type Lead = {
   id: string;
   nome: string;
@@ -8,4 +21,7 @@ export type Lead = {
   perfil: string;
   empresa_id: string | null;
   criado_em: string;
+
+  // ✅ JÁ EXISTE NO BANCO
+  status: LeadStatus;
 };

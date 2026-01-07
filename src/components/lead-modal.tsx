@@ -1,3 +1,4 @@
+// src\components\lead-modal.tsx
 "use client";
 
 import {
@@ -13,10 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 
-import { Lead } from "@/types/lead";
+import { Lead, LeadStatus } from "@/types/lead";
 import { Empresa } from "@/types/empresa";
 import { Interacao } from "@/types/interacao";
 
@@ -29,8 +29,91 @@ import {
   Trash2,
   Check,
   X,
+  CalendarClock,
+  BadgeCheck,
+  BadgeAlert,
+  BadgeHelp,
 } from "lucide-react";
 import { InteracaoCreateModal } from "@/components/interacao-create-modal";
+
+/* ===================== PIPELINE (mesmo padrão do card) ===================== */
+/**
+ * ✅ Importante:
+ * - No modal, o status também é LeadStatus (domínio)
+ * - Labels seguem o padrão do pipeline no dashboard
+ */
+const LEAD_STATUS_OPTIONS: ReadonlyArray<{ key: LeadStatus; label: string }> = [
+  { key: "novo", label: "Novo" },
+  { key: "email_enviado", label: "Contato realizado" },
+  { key: "contatado", label: "Em contato" },
+  { key: "interessado", label: "Interessado" },
+  { key: "qualificado", label: "Qualificado" },
+  { key: "frio", label: "Frio" },
+  { key: "fechado", label: "Fechado" },
+  { key: "perdido", label: "Perdido" },
+];
+
+const STATUS_COLORS: Record<LeadStatus, string> = {
+  novo: "bg-blue-100 text-blue-700 border-blue-300",
+  email_enviado: "bg-sky-100 text-sky-700 border-sky-300",
+  contatado: "bg-indigo-100 text-indigo-700 border-indigo-300",
+  follow_up: "bg-indigo-100 text-indigo-700 border-indigo-300",
+  respondeu: "bg-purple-100 text-purple-700 border-purple-300",
+  interessado: "bg-purple-100 text-purple-700 border-purple-300",
+  negociacao: "bg-green-100 text-green-700 border-green-300",
+  qualificado: "bg-green-100 text-green-700 border-green-300",
+  frio: "bg-gray-200 text-gray-700 border-gray-400",
+  fechado: "bg-emerald-200 text-emerald-700 border-emerald-500",
+  perdido: "bg-red-200 text-red-700 border-red-500",
+};
+
+function statusIcon(status: LeadStatus) {
+  if (status === "fechado") return BadgeCheck;
+  if (status === "perdido") return BadgeAlert;
+  if (status === "frio") return BadgeHelp;
+  return CalendarClock;
+}
+
+function normalizeStatus(value: LeadStatus | string | null | undefined): LeadStatus {
+  const v = (value || "").trim().toLowerCase();
+
+  const map: Record<string, LeadStatus> = {
+    email_enviado: "email_enviado",
+    follow_up: "contatado",
+    respondeu: "interessado",
+    negociacao: "qualificado",
+  };
+
+  if (v in map) return map[v];
+
+  if (
+    [
+      "novo",
+      "email_enviado",
+      "contatado",
+      "follow_up",
+      "respondeu",
+      "interessado",
+      "negociacao",
+      "qualificado",
+      "frio",
+      "fechado",
+      "perdido",
+    ].includes(v)
+  ) {
+    return v as LeadStatus;
+  }
+
+  return "novo";
+}
+
+async function updateLeadStatus(leadId: string, status: LeadStatus) {
+  await fetch("/api/status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lead_id: leadId, status }),
+  });
+}
 
 type Props = {
   open: boolean;
@@ -68,13 +151,17 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
 
   const [openNovaInteracaoModal, setOpenNovaInteracaoModal] = useState(false);
 
+  // ✅ status (modal) — sincronizado com o lead e com o pipeline
+  const [statusLocal, setStatusLocal] = useState<LeadStatus>("novo");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
   const leadsForCreateModal = useMemo(
     () => (lead ? [{ id: lead.id, nome: lead.nome }] : []),
     [lead]
   );
 
   /* =========================================================
-      SINCRONIZAR FORM QUANDO O LEAD MUDAR
+      SINCRONIZAR FORM + STATUS QUANDO O LEAD MUDAR
   ========================================================= */
   useEffect(() => {
     if (!lead) return;
@@ -88,6 +175,8 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
       perfil: lead.perfil,
       empresa_id: lead.empresa_id ?? "",
     });
+
+    setStatusLocal(normalizeStatus(lead.status));
   }, [lead]);
 
   /* =========================================================
@@ -176,15 +265,11 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
         return;
       }
 
-      // 🔥 Atualiza o modal internamente para refletir o salvo
-      setForm((prev) => ({ ...prev }));
-
       alert("✅ Lead atualizado com sucesso!");
       setIsEditing(false);
 
-      // 🔥 Recarrega dados da empresa e interações se existirem
-      loadEmpresa();
-      loadInteracoesDoLead();
+      void loadEmpresa();
+      void loadInteracoesDoLead();
 
       onUpdated?.();
     } catch (error) {
@@ -209,7 +294,7 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
 
       alert("Lead excluído com sucesso!");
       onClose();
-      if (onUpdated) onUpdated();
+      onUpdated?.();
     } catch (error) {
       console.error("Erro ao excluir lead:", error);
       alert(
@@ -218,12 +303,40 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
     }
   };
 
+  // ✅ Dropdown de status no MODAL (mesmo padrão do card)
+  const handleStatusChange = async (next: LeadStatus) => {
+    if (!lead?.id) return;
+
+    const current = normalizeStatus(lead.status);
+    if (next === current) return;
+
+    try {
+      setUpdatingStatus(true);
+      setStatusLocal(next);
+
+      await updateLeadStatus(lead.id, next);
+
+      // 🔥 garante sincronização modal ↔ pipeline (recarrega lista no dashboard)
+      onUpdated?.();
+
+      // 🔥 recarrega interações do lead (se a API /api/status gerar interação)
+      void loadInteracoesDoLead();
+    } catch (error) {
+      console.error("Erro ao atualizar status do lead:", error);
+      alert("❌ Erro ao atualizar status.");
+      // volta para o status atual
+      setStatusLocal(current);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   /* =========================================================
       BLOQUEIO SE NÃO HOUVER LEAD
   ========================================================= */
-  if (!lead) {
-    return null;
-  }
+  if (!lead) return null;
+
+  const StatusIco = statusIcon(statusLocal);
 
   /* =========================================================
       JSX
@@ -233,23 +346,58 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent
           className="
-    w-full max-w-[480px]          /* 🔥 menor e firme */
-    !rounded-xl
-    border border-[#BFDBFE]
-    shadow-xl
-    bg-white/90 backdrop-blur-xl
-    p-6
-    overflow-y-auto max-h-[85vh]  /* 🔥 evita ficar gigante vertical */
-  "
+            w-full max-w-[520px]
+            !rounded-xl
+            border border-[#BFDBFE]
+            shadow-xl
+            bg-white/90 backdrop-blur-xl
+            p-6
+            overflow-y-auto max-h-[85vh]
+          "
         >
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-[#0A2A5F]">
-              {isEditing ? "✏️ Editar Lead" : lead.nome}
+            <DialogTitle className="text-2xl font-bold text-[#0A2A5F] flex items-center justify-between gap-3">
+              <span className="truncate">{isEditing ? "✏️ Editar Lead" : lead.nome}</span>
+
+              {/* ✅ Status no cabeçalho do modal (enterprise) */}
+              <span className="shrink-0 inline-flex items-center gap-2">
+                <span
+                  className="
+                    w-9 h-9 rounded-xl
+                    bg-white/70 border border-[#BFDBFE]
+                    flex items-center justify-center
+                    shadow-sm
+                  "
+                  title="Status do lead"
+                >
+                  <StatusIco size={16} className="text-[#0A2A5F]" />
+                </span>
+
+                <select
+                  value={statusLocal}
+                  disabled={updatingStatus}
+                  onChange={(e) => handleStatusChange(e.target.value as LeadStatus)}
+                  className={`
+                    text-[12px] px-3 py-2 rounded-xl border
+                    bg-white/80
+                    focus:outline-none focus:ring-2 focus:ring-slate-900/10
+                    ${STATUS_COLORS[statusLocal]}
+                  `}
+                  title="Alterar status do lead"
+                >
+                  {LEAD_STATUS_OPTIONS.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </span>
             </DialogTitle>
+
             <DialogDescription>
               {isEditing
                 ? "Atualize os dados e salve"
-                : "Informações completas do lead"}
+                : "Informações completas do lead (padrão corporativo)."}
             </DialogDescription>
           </DialogHeader>
 
@@ -282,7 +430,6 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
                 const v = e.target.value;
                 setForm((f) => ({ ...f, cargo: v }));
 
-                // se for Outro → limpa para abrir o input
                 if (v === "__OUTRO__") {
                   setTimeout(() => {
                     const inputOutro = document.getElementById("cargo-outro");
@@ -295,7 +442,6 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
               <option value="">Selecione...</option>
               <option value="CEO">CEO</option>
               <option value="Diretor Financeiro">Diretor Financeiro</option>
-              {/* se já tiver cargo salvo que não está na lista */}
               {form.cargo &&
                 !["CEO", "Diretor Financeiro"].includes(form.cargo) && (
                   <option value={form.cargo}>{form.cargo}</option>
@@ -365,20 +511,19 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
           </div>
 
           {/* =========================================================
-    BOTÕES DE AÇÃO
-========================================================= */}
+              BOTÕES DE AÇÃO
+          ========================================================= */}
           <div className="flex items-center justify-between pt-6 border-t mt-6 pt-4">
-            {/* ===== À ESQUERDA: Editar / Salvar / Cancelar ===== */}
             <div className="flex gap-3">
               {!isEditing ? (
                 <button
                   type="button"
                   onClick={handleEditToggle}
                   className="
-          px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
-          bg-blue-600 text-white
-          hover:bg-blue-700 transition shadow-sm hover:shadow
-        "
+                    px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
+                    bg-blue-600 text-white
+                    hover:bg-blue-700 transition shadow-sm hover:shadow
+                  "
                 >
                   <Pencil size={16} /> Editar
                 </button>
@@ -388,10 +533,10 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
                     type="button"
                     onClick={handleSave}
                     className="
-            px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
-            bg-green-600 text-white
-            hover:bg-green-700 transition shadow-sm hover:shadow
-          "
+                      px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
+                      bg-green-600 text-white
+                      hover:bg-green-700 transition shadow-sm hover:shadow
+                    "
                   >
                     <Check size={16} /> Salvar
                   </button>
@@ -400,10 +545,10 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
                     type="button"
                     onClick={handleEditToggle}
                     className="
-            px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
-            bg-gray-500 text-white
-            hover:bg-gray-600 transition shadow-sm hover:shadow
-          "
+                      px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
+                      bg-gray-500 text-white
+                      hover:bg-gray-600 transition shadow-sm hover:shadow
+                    "
                   >
                     <X size={16} /> Cancelar
                   </button>
@@ -411,17 +556,16 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
               )}
             </div>
 
-            {/* ===== À DIREITA: Excluir / Fechar ===== */}
             <div className="flex gap-3">
               {!isEditing && (
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(true)}
                   className="
-          px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
-          bg-red-600 text-white
-          hover:bg-red-700 transition shadow-sm hover:shadow
-        "
+                    px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
+                    bg-red-600 text-white
+                    hover:bg-red-700 transition shadow-sm hover:shadow
+                  "
                 >
                   <Trash2 size={16} /> Excluir
                 </button>
@@ -431,10 +575,10 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
                 type="button"
                 onClick={onClose}
                 className="
-        px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
-        bg-slate-900 text-white
-        hover:bg-slate-800 transition shadow-sm hover:shadow
-      "
+                  px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold
+                  bg-slate-900 text-white
+                  hover:bg-slate-800 transition shadow-sm hover:shadow
+                "
               >
                 Fechar
               </button>
@@ -442,8 +586,8 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
           </div>
 
           {/* =========================================================
-    CONFIRMAÇÃO DE EXCLUSÃO
-========================================================= */}
+              CONFIRMAÇÃO DE EXCLUSÃO
+          ========================================================= */}
           {confirmDelete && (
             <div className="mt-5 p-4 border border-red-300 bg-red-50 rounded-lg">
               <p className="text-sm text-red-700 font-semibold mb-3">
@@ -467,6 +611,61 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
               </div>
             </div>
           )}
+
+          {/* =========================================================
+              INTERAÇÕES (LISTAGEM RÁPIDA)
+          ========================================================= */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-700">
+                Interações do lead
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setOpenNovaInteracaoModal(true)}
+                className="
+                  text-xs font-semibold
+                  px-3 py-2 rounded-xl
+                  bg-slate-900 text-white
+                  hover:bg-slate-800 transition
+                "
+              >
+                Nova interação
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {loadingInteracoes ? (
+                <div className="text-xs text-slate-500">Carregando...</div>
+              ) : interacoes.length === 0 ? (
+                <div className="text-xs text-slate-500">
+                  Nenhuma interação registrada.
+                </div>
+              ) : (
+                interacoes.slice(0, 6).map((it) => (
+                  <div
+                    key={it.id}
+                    className="rounded-xl border border-[#BFDBFE] bg-white/60 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-slate-700">
+                        {it.status}
+                      </p>
+                      <span className="text-[10px] text-slate-500">
+                        {new Date(it.criado_em).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                    {it.observacao ? (
+                      <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                        {it.observacao}
+                      </p>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
