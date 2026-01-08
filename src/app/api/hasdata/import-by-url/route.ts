@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 type ImportByUrlBody = {
   url?: string;
+  options?: {
+    allowMissingEmployees?: boolean;
+    requireEmployees?: boolean;
+  };
 };
 
 type BackendOk = {
@@ -48,49 +52,23 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         "x-exxacta-signature": secret,
       },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({
+        url,
+        options: isRecord(body.options) ? body.options : undefined,
+      }),
       cache: "no-store",
     });
 
-    const dataUnknown: unknown = await res.json().catch(() => null);
+    const data = await res.json();
 
     if (!res.ok) {
-      const msg =
-        isRecord(dataUnknown) && typeof dataUnknown.error === "string"
-          ? dataUnknown.error
-          : "Falha ao importar (backend)";
-      return NextResponse.json({ error: msg }, { status: res.status });
-    }
-
-    if (
-      isRecord(dataUnknown) &&
-      typeof dataUnknown.error === "string"
-    ) {
       return NextResponse.json(
-        { error: dataUnknown.error },
-        { status: 400 }
+        { error: data?.error ?? "Falha ao importar (backend)" },
+        { status: res.status }
       );
     }
 
-    if (
-      isRecord(dataUnknown) &&
-      typeof dataUnknown.imported === "number" &&
-      typeof dataUnknown.skipped === "number" &&
-      typeof dataUnknown.total === "number"
-    ) {
-      const okData: BackendOk = {
-        imported: dataUnknown.imported,
-        skipped: dataUnknown.skipped,
-        total: dataUnknown.total,
-      };
-
-      return NextResponse.json(okData, { status: 200 });
-    }
-
-    return NextResponse.json(
-      { error: "Resposta inválida do backend" },
-      { status: 500 }
-    );
+    return NextResponse.json(data, { status: 200 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro inesperado";
     return NextResponse.json({ error: msg }, { status: 500 });
