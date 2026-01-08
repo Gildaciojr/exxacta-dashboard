@@ -924,7 +924,16 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Conteúdo da coluna */}
-                    <div className="p-3 space-y-2">
+                    <div
+                      className="
+    p-3 space-y-2
+    max-h-[calc(100vh-360px)]
+    overflow-y-auto
+    scrollbar-thin
+    scrollbar-thumb-slate-300
+    scrollbar-track-transparent
+  "
+                    >
                       {col.leads.length === 0 && (
                         <div
                           className="
@@ -958,20 +967,21 @@ export default function DashboardPage() {
                               }}
                               onClick={() => abrirLead(lead)}
                               className="
-                                group
-                                w-full text-left
-                                rounded-xl
-                                bg-gradient-to-br from-white/90 to-[#E0F2FE]
-                                border border-[#BFDBFE]
-                                hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
-                                hover:-translate-y-[2px]
-                                transition-all duration-300
-                                px-3 py-3
-                              "
+  group
+  relative overflow-hidden
+  w-full text-left
+  rounded-xl
+  bg-gradient-to-br from-white/90 to-[#E0F2FE]
+  border border-[#BFDBFE]
+  hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
+  hover:-translate-y-[2px]
+  transition-all duration-300
+  px-3 py-2
+"
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-extrabold text-slate-900 line-clamp-1">
+                                  <p className="text-sm font-extrabold text-slate-900 line-clamp--2 leading-snug">
                                     {lead.nome}
                                   </p>
                                   <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
