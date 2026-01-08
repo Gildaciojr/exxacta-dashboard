@@ -1,3 +1,6 @@
+
+// ⚠️ ROTA LEGADA — NÃO UTILIZADA EM PRODUÇÃO
+// Importação HasData agora é feita via backend NestJS
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 

@@ -12,6 +12,7 @@ import { useRealtimeLeadsInteracoes } from "@/hooks/useRealtimeLeadsInteracoes";
 import { EmailTemplateModal } from "@/components/EmailTemplateModal";
 import { AddEntityModal } from "@/components/add-entity-modal";
 import { LogoutButton } from "@/components/LogoutButton";
+import { HasdataImportCard } from "@/components/hasdata-import-card";
 
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -111,12 +112,14 @@ const PIPELINE_STATUSES = [
 type PipelineStatusKey = LeadStatus;
 
 function isPipelineStatusKey(value: string): value is PipelineStatusKey {
-  return (PIPELINE_STATUSES as ReadonlyArray<{ key: LeadStatus; label: string }>).some(
-    (s) => s.key === value
-  );
+  return (
+    PIPELINE_STATUSES as ReadonlyArray<{ key: LeadStatus; label: string }>
+  ).some((s) => s.key === value);
 }
 
-function normalizeStatus(value: LeadStatus | string | null | undefined): LeadStatus {
+function normalizeStatus(
+  value: LeadStatus | string | null | undefined
+): LeadStatus {
   const v = (value || "").trim().toLowerCase();
 
   const map: Record<string, LeadStatus> = {
@@ -217,9 +220,9 @@ function formatEmpresaTamanho(tamanho: string) {
 /* ===================== PAGE ===================== */
 
 export default function DashboardPage() {
-  const [view, setView] = useState<"home" | "empresas" | "leads" | "interacoes">(
-    "home"
-  );
+  const [view, setView] = useState<
+    "home" | "empresas" | "leads" | "interacoes"
+  >("home");
 
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -674,6 +677,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ===================== HASDATA IMPORT ===================== */}
+      <HasdataImportCard />
+
       {/* ===================== STATS / NAV CARDS ===================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card
@@ -945,7 +951,11 @@ export default function DashboardPage() {
                               initial={{ opacity: 0, y: 10, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                              transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 420,
+                                damping: 32,
+                              }}
                               onClick={() => abrirLead(lead)}
                               className="
                                 group

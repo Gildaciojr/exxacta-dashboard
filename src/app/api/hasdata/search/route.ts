@@ -1,3 +1,5 @@
+// ⚠️ ROTA LEGADA — NÃO UTILIZADA EM PRODUÇÃO
+// Importação HasData agora é feita via backend NestJS
 import { NextRequest, NextResponse } from "next/server";
 import { hasdataSearch } from "@/lib/hasdata";
 
