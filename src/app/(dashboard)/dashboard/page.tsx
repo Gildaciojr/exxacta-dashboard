@@ -1555,23 +1555,25 @@ function LeadsSection({
               key={lead.id}
               onClick={() => onSelect(lead)}
               className="
-                group
-                bg-gradient-to-br from-white to-[#E0F2FE]
-                border border-[#BFDBFE]
-                rounded-2xl shadow-sm
-                hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-                hover:-translate-y-[2px]
-                transition-all duration-300
-                p-5 text-left
-              "
+    group
+    relative
+    overflow-hidden
+    bg-gradient-to-br from-white to-[#E0F2FE]
+    border border-[#BFDBFE]
+    rounded-2xl shadow-sm
+    hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+    hover:-translate-y-[2px]
+    transition-all duration-300
+    p-5 text-left
+  "
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-base font-extrabold text-slate-900 truncate">
+              <div className="mt-4 flex flex-wrap items-center gap-2 leading-none">
+                <div className="min-w-0 space-y-0.5">
+                  <h3 className="text-base font-extrabold text-slate-900 leading-snug line-clamp-2">
                     {lead.nome}
                   </h3>
 
-                  <p className="text-xs text-slate-500 mt-1 truncate">
+                  <p className="text-xs text-slate-500 truncate">
                     {lead.cargo || "Cargo não informado"}
                   </p>
                 </div>
@@ -1590,7 +1592,7 @@ function LeadsSection({
                 </span>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-4 flex flex-wrap items-center gap-2 leading-none">
                 <span
                   className="
                     text-[11px] px-2.5 py-1 rounded-full
@@ -1623,7 +1625,7 @@ function LeadsSection({
                     border border-[#BFDBFE]
                     bg-white/70 text-[#0A2A5F]
                     shadow-sm
-                    max-w-[70%]
+                    max-w-[65%]
                   "
                   title={lead.linkedin_url ?? undefined}
                 >
