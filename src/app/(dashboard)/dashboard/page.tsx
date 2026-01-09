@@ -1396,44 +1396,60 @@ function EmpresasSection({
 
             <div className="mt-4 flex items-center gap-2">
               {emp.site && (
-                <span
+                <a
+                  href={
+                    emp.site.startsWith("http")
+                      ? emp.site
+                      : `https://${emp.site}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="
-                    inline-flex items-center gap-2
-                    text-[11px] font-semibold
-                    px-3 py-1.5 rounded-xl
-                    bg-slate-900 text-white
-                    shadow-sm
-                  "
-                  title={emp.site ?? undefined}
+        inline-flex items-center gap-2
+        text-[11px] font-semibold
+        px-3 py-1.5 rounded-xl
+        bg-slate-900 text-white
+        shadow-sm
+        hover:bg-slate-800
+        transition
+      "
+                  title={emp.site}
                 >
                   <Globe size={14} />
                   Site
-                </span>
+                </a>
               )}
 
               {emp.linkedin_url && (
-                <span
+                <a
+                  href={emp.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="
-                    inline-flex items-center gap-2
-                    text-[11px] font-semibold
-                    px-3 py-1.5 rounded-xl
-                    border border-[#BFDBFE]
-                    bg-white/70 text-[#0A2A5F]
-                    shadow-sm
-                  "
-                  title={emp.linkedin_url ?? undefined}
+        inline-flex items-center gap-2
+        text-[11px] font-semibold
+        px-3 py-1.5 rounded-xl
+        border border-[#BFDBFE]
+        bg-white/70 text-[#0A2A5F]
+        shadow-sm
+        hover:bg-white
+        transition
+      "
+                  title={emp.linkedin_url}
                 >
                   <Linkedin size={14} />
                   LinkedIn
-                </span>
+                </a>
               )}
 
               <span
                 className="
-                  ml-auto
-                  opacity-0 group-hover:opacity-100
-                  transition text-[#0A2A5F]
-                "
+      ml-auto
+      opacity-0 group-hover:opacity-100
+      transition text-[#0A2A5F]
+    "
                 title="Abrir detalhes"
               >
                 <ArrowUpRight size={16} />
