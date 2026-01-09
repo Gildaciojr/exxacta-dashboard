@@ -346,8 +346,8 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent
           className="
-            w-full max-w-[520px]
-            !rounded-xl
+            max-w-5xl h-[90vh]
+            overflow-hidden
             border border-[#BFDBFE]
             shadow-xl
             bg-white/90 backdrop-blur-xl
