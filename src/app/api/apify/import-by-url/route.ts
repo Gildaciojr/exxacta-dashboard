@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 function readEnv(name: string): string {
   const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
+  if (!v) {
+    throw new Error(`Missing env: ${name}`);
+  }
   return v;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
     const url = body?.url;
     const forceImport = body?.forceImport === true;
 
@@ -19,25 +22,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const backend = readEnv("NEXT_PUBLIC_BACKEND_URL");
-    const secret = readEnv("EXXACTA_N8N_SECRET");
+    // ✅ URL do backend (já existe no Vercel)
+    const backendUrl = readEnv("NEXT_PUBLIC_BACKEND_URL");
 
-    const res = await fetch(`${backend}/api/apify/import-by-url`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-exxacta-signature": secret,
-      },
-      body: JSON.stringify({ url, forceImport }),
-      cache: "no-store",
+    // ✅ ASSINATURA CORRETA (EXISTE no Vercel)
+    const signature = readEnv("NEXT_PUBLIC_EXXACTA_SIGNATURE");
+
+    const response = await fetch(
+      `${backendUrl}/api/apify/import-by-url`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-exxacta-signature": signature,
+        },
+        body: JSON.stringify({
+          url,
+          forceImport,
+        }),
+        cache: "no-store",
+      }
+    );
+
+    const data = await response.json();
+
+    return NextResponse.json(data, {
+      status: response.status,
     });
-
-    const data = await res.json();
-
-    return NextResponse.json(data, { status: res.status });
-  } catch (e: unknown) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Erro inesperado" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro inesperado no import da Apify",
+      },
       { status: 500 }
     );
   }
