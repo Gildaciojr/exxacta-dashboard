@@ -13,6 +13,8 @@ import { EmailTemplateModal } from "@/components/EmailTemplateModal";
 import { AddEntityModal } from "@/components/add-entity-modal";
 import { LogoutButton } from "@/components/LogoutButton";
 import { HasdataImportCard } from "@/components/hasdata-import-card";
+import { ApifyImportCard } from "@/components/apify-import-card";
+
 
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -679,6 +681,7 @@ export default function DashboardPage() {
 
       {/* ===================== HASDATA IMPORT ===================== */}
       <HasdataImportCard />
+      <ApifyImportCard />
 
       {/* ===================== STATS / NAV CARDS ===================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
