@@ -14,7 +14,7 @@ import { AddEntityModal } from "@/components/add-entity-modal";
 import { LogoutButton } from "@/components/LogoutButton";
 import { HasdataImportCard } from "@/components/hasdata-import-card";
 import { ApifyImportCard } from "@/components/apify-import-card";
-
+import type { Empresa } from "@/types/empresa";
 
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -37,16 +37,6 @@ import {
 } from "lucide-react";
 
 /* ===================== TYPES ===================== */
-
-type Empresa = {
-  id: string;
-  nome: string;
-  cidade: string | null;
-  tamanho: string;
-  criado_em: string;
-  site: string | null;
-  linkedin_url: string | null;
-};
 
 type Interacao = {
   id: string;
@@ -213,7 +203,7 @@ function formatDateBR(iso: string) {
   }
 }
 
-function formatEmpresaTamanho(tamanho: string) {
+function formatEmpresaTamanho(tamanho?: string | null) {
   const t = (tamanho || "").trim();
   if (!t) return "Não informado";
   return t.replaceAll("_ate_", " até ").replaceAll("_", " ");

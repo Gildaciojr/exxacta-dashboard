@@ -10,17 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Globe, Linkedin, Building2 } from "lucide-react";
-
-type Empresa = {
-  id: string;
-  nome: string;
-  cidade: string | null;
-  tamanho: string | null; // enum antigo
-  tamanho_funcionarios: number | null; // ✅ NOVO
-  site: string | null;
-  linkedin_url: string | null;
-  criado_em: string;
-};
+import type { Empresa } from "@/types/empresa";
 
 type Props = {
   open: boolean;
@@ -30,7 +20,7 @@ type Props = {
 
 export function EmpresaModal({ open, onClose, empresa }: Props) {
   // ===============================
-  // 🔹 HOOKS SEMPRE NO TOPO
+  // 🔹 HOOKS (sempre no topo)
   // ===============================
   const [nome, setNome] = useState("");
   const [cidade, setCidade] = useState("");
@@ -57,7 +47,7 @@ export function EmpresaModal({ open, onClose, empresa }: Props) {
   }, [empresa]);
 
   // ===============================
-  // 🔹 GUARD (APÓS HOOKS)
+  // 🔹 GUARD (após hooks)
   // ===============================
   if (!empresa) return null;
   const empresaSafe = empresa;
@@ -189,6 +179,7 @@ export function EmpresaModal({ open, onClose, empresa }: Props) {
               <option value="10_ate_20">10 até 20</option>
               <option value="21_ate_50">21 até 50</option>
               <option value="51_ate_100">51 até 100</option>
+              <option value="101_ate_150">101 até 150</option>
             </select>
           </div>
 
