@@ -6,22 +6,33 @@ import { Lead } from "@/types/lead";
 import { LeadModal } from "@/components/lead-modal";
 import { Search, Users } from "lucide-react";
 
+/* =========================================================
+   TIPOS
+   ⚠️ Supabase SEMPRE retorna relação como ARRAY
+========================================================= */
 type LeadWithEmpresa = Lead & {
-  empresa: { nome: string }[] | null;
+  empresa: {
+    id: string;
+    nome: string;
+    tamanho: string | null;
+    site: string | null;
+    linkedin_url: string | null;
+  }[];
 };
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<LeadWithEmpresa[]>([]);
-  const [selectedLead, setSelectedLead] =
-    useState<LeadWithEmpresa | null>(null);
+  const [selectedLead, setSelectedLead] = useState<LeadWithEmpresa | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
+  /* =========================================================
+     LOAD LEADS
+  ========================================================= */
   async function loadLeads() {
     const { data, error } = await supabase
       .from("leads")
-      .select(
-        `
+      .select(`
         id,
         nome,
         cargo,
@@ -29,11 +40,17 @@ export default function LeadsPage() {
         telefone,
         linkedin_url,
         perfil,
+        status,
         empresa_id,
         criado_em,
-        empresa:empresas ( nome )
-      `
-      )
+        empresa:empresas (
+          id,
+          nome,
+          tamanho,
+          site,
+          linkedin_url
+        )
+      `)
       .order("criado_em", { ascending: false });
 
     if (error) {
@@ -42,183 +59,149 @@ export default function LeadsPage() {
       return;
     }
 
-    setLeads((data as LeadWithEmpresa[]) || []);
+    setLeads((data as LeadWithEmpresa[]) ?? []);
   }
 
+  /* =========================================================
+     EFFECT (SEM WARNING DE HOOK)
+  ========================================================= */
   useEffect(() => {
-    async function init() {
+    let active = true;
+
+    (async () => {
+      setLoading(true);
       await loadLeads();
-      setLoading(false);
-    }
-    init();
+      if (active) setLoading(false);
+    })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const filtered = useMemo(
-    () =>
-      leads.filter((l) =>
-        l.nome.toLowerCase().includes(search.toLowerCase())
-      ),
-    [leads, search]
-  );
+  /* =========================================================
+     FILTRO
+  ========================================================= */
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return leads.filter((l) => l.nome.toLowerCase().includes(q));
+  }, [leads, search]);
 
+  /* =========================================================
+     FORMATAR TAMANHO (FAIXA)
+  ========================================================= */
+  function formatTamanho(tamanho?: string | null) {
+    if (!tamanho) return "-";
+
+    const map: Record<string, string> = {
+      "10_ate_20": "10 até 20",
+      "21_ate_50": "21 até 50",
+      "51_ate_100": "51 até 100",
+      "101_ate_150": "101 até 150",
+    };
+
+    return map[tamanho] ?? tamanho;
+  }
+
+  /* =========================================================
+     UI
+  ========================================================= */
   return (
     <div className="space-y-6">
       {/* ================= HEADER ================= */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-[#0A2A5F]">
+          <h1 className="text-4xl font-extrabold text-[#0A2A5F]">
             Leads coletados
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Visualização completa e gerenciamento dos leads captados
+          <p className="text-sm text-slate-500">
+            Visualização completa dos leads importados
           </p>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded-xl border border-[#BFDBFE] bg-white/70 px-4 py-2 shadow-sm">
-            <Users size={16} className="text-slate-500" />
-            <span className="text-sm font-semibold text-[#0A2A5F]">
-              {filtered.length}
-            </span>
+          <div className="flex items-center gap-2 rounded-xl border px-4 py-2 bg-white/70">
+            <Users size={16} />
+            <span className="font-semibold">{filtered.length}</span>
             <span className="text-xs text-slate-500">leads</span>
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-[#BFDBFE] bg-white/70 px-4 py-2 shadow-sm">
-            <Search size={16} className="text-slate-500" />
+          <div className="flex items-center gap-2 rounded-xl border px-4 py-2 bg-white/70">
+            <Search size={16} />
             <input
-              type="text"
-              placeholder="Buscar lead por nome..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400 w-[220px]"
+              placeholder="Buscar lead..."
+              className="bg-transparent outline-none text-sm w-56"
             />
           </div>
         </div>
       </div>
 
       {/* ================= STATES ================= */}
-      {loading && (
-        <p className="text-sm text-slate-500">Carregando leads...</p>
-      )}
+      {loading && <p className="text-sm">Carregando leads...</p>}
 
       {!loading && filtered.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-[#BFDBFE] bg-white/50 p-6">
-          <p className="text-sm text-slate-500">
-            Nenhum lead encontrado com os filtros atuais.
-          </p>
-        </div>
+        <p className="text-sm text-slate-500">Nenhum lead encontrado.</p>
       )}
 
-      {/* ================= TABLE ================= */}
+      {/* ================= TABELA ================= */}
       {!loading && filtered.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] shadow-xl bg-white/70 backdrop-blur-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-[#0A2A5F]">
-              <thead className="sticky top-0 z-10">
-                <tr
-                  className="
-                    bg-gradient-to-r from-[#EFF6FF] via-[#DBEAFE] to-[#BFDBFE]
-                    font-semibold shadow-inner
-                  "
-                >
-                  <th className="p-4 text-left">Nome</th>
-                  <th className="p-4 text-left">Cargo</th>
-                  <th className="p-4 text-left">Perfil</th>
-                  <th className="p-4 text-left">Empresa</th>
-                  <th className="p-4 text-left">LinkedIn</th>
-                  <th className="p-4 text-left">Contato</th>
-                  <th className="p-4 text-right">Ações</th>
-                </tr>
-              </thead>
+        <div className="rounded-2xl border bg-white/70 shadow">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-100">
+              <tr>
+                <th className="p-4 text-left">Nome</th>
+                <th className="p-4 text-left">Cargo</th>
+                <th className="p-4 text-left">Empresa</th>
+                <th className="p-4 text-left">Tamanho</th>
+                <th className="p-4 text-right">Ações</th>
+              </tr>
+            </thead>
 
-              <tbody>
-                {filtered.map((lead) => (
-                  <tr
-                    key={lead.id}
-                    className="
-                      border-t border-[#E5E7EB]/60
-                      hover:bg-white
-                      hover:shadow-[0_4px_18px_rgba(59,130,246,0.15)]
-                      hover:-translate-y-[1px]
-                      transition-all
-                    "
-                  >
+            <tbody>
+              {filtered.map((lead) => {
+                const empresa = lead.empresa.length > 0 ? lead.empresa[0] : null;
+
+                return (
+                  <tr key={lead.id} className="border-t">
                     <td className="p-4 font-semibold">{lead.nome}</td>
 
-                    <td className="p-4 text-slate-600">
-                      {lead.cargo || "-"}
+                    <td className="p-4">{lead.cargo || "-"}</td>
+
+                    <td className="p-4">
+                      {empresa?.nome ?? "-"}
                     </td>
 
                     <td className="p-4">
-                      <span
-                        className="
-                          inline-flex items-center px-2.5 py-1 rounded-full
-                          text-[11px] font-bold uppercase tracking-wide
-                          bg-[#DBEAFE] text-[#1E3A8A]
-                        "
-                      >
-                        {lead.perfil}
-                      </span>
-                    </td>
-
-                    <td className="p-4 font-medium text-[#1E3A8A]">
-                      {lead.empresa && lead.empresa.length > 0
-                        ? lead.empresa[0].nome
-                        : "-"}
-                    </td>
-
-                    <td className="p-4">
-                      {lead.linkedin_url ? (
-                        <a
-                          href={lead.linkedin_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[#3B82F6] font-medium hover:underline"
-                        >
-                          Abrir perfil ↗
-                        </a>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-
-                    <td className="p-4 text-slate-600">
-                      {lead.email || lead.telefone || "-"}
+                      {formatTamanho(empresa?.tamanho)}
                     </td>
 
                     <td className="p-4 text-right">
                       <button
-                        type="button"
                         onClick={() => setSelectedLead(lead)}
-                        className="
-                          inline-flex items-center gap-1
-                          text-xs font-bold
-                          text-[#1E3A8A]
-                          hover:text-[#3B82F6]
-                          hover:underline
-                          transition
-                        "
+                        className="text-blue-600 hover:underline"
                       >
                         Ver detalhes →
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* ================= MODAL ================= */}
       {selectedLead && (
         <LeadModal
-          open={!!selectedLead}
+          open
+          lead={selectedLead}
           onClose={() => {
             setSelectedLead(null);
             loadLeads();
           }}
-          lead={selectedLead}
           onUpdated={loadLeads}
         />
       )}

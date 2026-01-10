@@ -15,7 +15,8 @@ type Empresa = {
   id: string;
   nome: string;
   cidade: string | null;
-  tamanho: string;
+  tamanho: string | null; // enum antigo
+  tamanho_funcionarios: number | null; // ✅ NOVO
   site: string | null;
   linkedin_url: string | null;
   criado_em: string;
