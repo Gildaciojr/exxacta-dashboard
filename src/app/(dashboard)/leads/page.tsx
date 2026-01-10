@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Lead } from "@/types/lead";
 import { LeadModal } from "@/components/lead-modal";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Linkedin, Mail } from "lucide-react";
 
 /* =========================================================
    TIPOS
@@ -27,7 +27,7 @@ export default function LeadsPage() {
   const [search, setSearch] = useState("");
 
   /* =========================================================
-     LOAD LEADS
+     LOAD LEADS (JOIN CORRETO COM EMPRESAS)
   ========================================================= */
   async function loadLeads() {
     const { data, error } = await supabase
@@ -63,7 +63,7 @@ export default function LeadsPage() {
   }
 
   /* =========================================================
-     EFFECT (SEM WARNING DE HOOK)
+     EFFECT
   ========================================================= */
   useEffect(() => {
     let active = true;
@@ -91,16 +91,12 @@ export default function LeadsPage() {
      FORMATAR TAMANHO (FAIXA)
   ========================================================= */
   function formatTamanho(tamanho?: string | null) {
-    if (!tamanho) return "-";
+    const t = (tamanho || "").trim();
+    if (!t) return "Não informado";
 
-    const map: Record<string, string> = {
-      "10_ate_20": "10 até 20",
-      "21_ate_50": "21 até 50",
-      "51_ate_100": "51 até 100",
-      "101_ate_150": "101 até 150",
-    };
-
-    return map[tamanho] ?? tamanho;
+    return t
+      .replaceAll("_ate_", " até ")
+      .replaceAll("_", " ");
   }
 
   /* =========================================================
@@ -147,7 +143,7 @@ export default function LeadsPage() {
 
       {/* ================= TABELA ================= */}
       {!loading && filtered.length > 0 && (
-        <div className="rounded-2xl border bg-white/70 shadow">
+        <div className="rounded-2xl border bg-white/70 shadow overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-100">
               <tr>
@@ -155,13 +151,18 @@ export default function LeadsPage() {
                 <th className="p-4 text-left">Cargo</th>
                 <th className="p-4 text-left">Empresa</th>
                 <th className="p-4 text-left">Tamanho</th>
+                <th className="p-4 text-left">Email</th>
+                <th className="p-4 text-left">LinkedIn</th>
                 <th className="p-4 text-right">Ações</th>
               </tr>
             </thead>
 
             <tbody>
               {filtered.map((lead) => {
-                const empresa = lead.empresa.length > 0 ? lead.empresa[0] : null;
+                const empresa =
+                  lead.empresa && lead.empresa.length > 0
+                    ? lead.empresa[0]
+                    : null;
 
                 return (
                   <tr key={lead.id} className="border-t">
@@ -175,6 +176,33 @@ export default function LeadsPage() {
 
                     <td className="p-4">
                       {formatTamanho(empresa?.tamanho)}
+                    </td>
+
+                    <td className="p-4">
+                      {lead.email ? (
+                        <span className="inline-flex items-center gap-1 text-slate-700">
+                          <Mail size={14} />
+                          {lead.email}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+
+                    <td className="p-4">
+                      {lead.linkedin_url ? (
+                        <a
+                          href={lead.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                        >
+                          <Linkedin size={14} />
+                          Ver perfil
+                        </a>
+                      ) : (
+                        "-"
+                      )}
                     </td>
 
                     <td className="p-4 text-right">
