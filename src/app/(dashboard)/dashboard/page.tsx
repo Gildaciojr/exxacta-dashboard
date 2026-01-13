@@ -185,15 +185,19 @@ function statusIconByKey(key: string) {
 /* ===================== STATUS UPDATE (FRONT → BACKEND) ===================== */
 
 async function updateLeadStatus(leadId: string, status: LeadStatus) {
-  await fetch("/api/status", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      lead_id: leadId,
-      status,
-    }),
-  });
+  await fetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/status`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lead_id: leadId,
+        status,
+      }),
+    }
+  );
 }
+
 
 function formatDateBR(iso: string) {
   try {
