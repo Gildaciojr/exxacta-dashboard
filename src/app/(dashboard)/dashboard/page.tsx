@@ -34,6 +34,7 @@ import {
   BadgeAlert,
   BadgeHelp,
   ArrowUpRight,
+  Flame,
 } from "lucide-react";
 
 /* ===================== TYPES ===================== */
@@ -41,12 +42,11 @@ import {
 type Interacao = {
   id: string;
   lead_id: string;
-  status: string; // status da INTERAÇÃO (não confundir com status do lead)
+  status: string;
   observacao: string | null;
   canal: string | null;
   criado_em: string;
 
-  // ✅ vem do select com join: lead:leads(nome)
   lead?: {
     nome: string;
   } | null;
@@ -54,7 +54,6 @@ type Interacao = {
 
 /**
  * Tipos mínimos para eventos realtime
- * - payload pode vir parcial, então validamos com type guards
  */
 type RealtimeLeadRow = Partial<Lead> & { id: string };
 type RealtimeInteracaoRow = Partial<Interacao> & {
@@ -82,16 +81,24 @@ function isRealtimeInteracaoRow(value: unknown): value is RealtimeInteracaoRow {
 
 /* ===================== PIPELINE CONFIG (STATUS DO LEAD) ===================== */
 /**
- * ✅ IMPORTANTE (CORREÇÃO DEFINITIVA)
- * - O Lead.status SEMPRE é LeadStatus (domínio/banco)
- * - Pipeline é apenas visual/UX e usa as chaves existentes do LeadStatus
+ * ✅ IMPORTANTE
+ * - Lead.status é domínio e no seu banco é enum status_interacao
+ * - Pipeline é apenas visual/UX, mas usamos as chaves reais do enum
+ *
+ * ✅ NOVO: "aquecimento" entra entre email_enviado e contatado (Em contato)
  */
 const PIPELINE_STATUSES = [
   { key: "novo", label: "Novo" },
 
-  // intermediários (status do lead)
+  // intermediários
   { key: "email_enviado", label: "Contato realizado" },
+
+  // ✅ NOVO (NÃO ATIVA N8N)
+  { key: "aquecimento", label: "Aquecimento" },
+
+  // ✅ ÚNICO QUE ATIVA N8N (regra ficará no backend /api/status)
   { key: "contatado", label: "Em contato" },
+
   { key: "interessado", label: "Interessado" },
   { key: "qualificado", label: "Qualificado" },
 
@@ -116,6 +123,7 @@ function normalizeStatus(
 
   const map: Record<string, LeadStatus> = {
     email_enviado: "email_enviado",
+    aquecimento: "aquecimento",
     follow_up: "contatado",
     respondeu: "interessado",
     negociacao: "qualificado",
@@ -127,6 +135,7 @@ function normalizeStatus(
     [
       "novo",
       "email_enviado",
+      "aquecimento",
       "contatado",
       "follow_up",
       "respondeu",
@@ -149,10 +158,14 @@ function statusLabel(status: string) {
   return found?.label ?? status;
 }
 
-// 🎨 Cores do pipeline por status
+// 🎨 Cores por status
 const STATUS_COLORS: Record<string, string> = {
   novo: "bg-blue-100 text-blue-700 border-blue-300",
   email_enviado: "bg-sky-100 text-sky-700 border-sky-300",
+
+  // ✅ NOVO
+  aquecimento: "bg-amber-100 text-amber-800 border-amber-300",
+
   contatado: "bg-indigo-100 text-indigo-700 border-indigo-300",
   interessado: "bg-purple-100 text-purple-700 border-purple-300",
   qualificado: "bg-green-100 text-green-700 border-green-300",
@@ -176,6 +189,10 @@ function canalLabel(canal?: string | null) {
 
 function statusIconByKey(key: string) {
   const k = (key || "").trim().toLowerCase();
+
+  // ✅ NOVO
+  if (k === "aquecimento") return Flame;
+
   if (k === "fechado") return BadgeCheck;
   if (k === "perdido") return BadgeAlert;
   if (k === "frio") return BadgeHelp;
@@ -185,19 +202,15 @@ function statusIconByKey(key: string) {
 /* ===================== STATUS UPDATE (FRONT → BACKEND) ===================== */
 
 async function updateLeadStatus(leadId: string, status: LeadStatus) {
-  await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/status`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lead_id: leadId,
-        status,
-      }),
-    }
-  );
+  await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      lead_id: leadId,
+      status,
+    }),
+  });
 }
-
 
 function formatDateBR(iso: string) {
   try {
@@ -216,16 +229,16 @@ function formatEmpresaTamanho(tamanho?: string | null) {
 /* ===================== PAGE ===================== */
 
 export default function DashboardPage() {
-  const [view, setView] = useState<
-    "home" | "empresas" | "leads" | "interacoes"
-  >("home");
+  const [view, setView] = useState<"home" | "empresas" | "leads" | "interacoes">(
+    "home"
+  );
 
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [interacoes, setInteracoes] = useState<Interacao[]>([]);
   const [openAdd, setOpenAdd] = useState(false);
 
-  // 🔎 filtros locais (apenas UI, não mexe em rotas)
+  // 🔎 filtros locais (apenas UI)
   const [searchLeads, setSearchLeads] = useState("");
   const [searchEmpresas, setSearchEmpresas] = useState("");
   const [searchInteracoes, setSearchInteracoes] = useState("");
@@ -252,9 +265,7 @@ export default function DashboardPage() {
   const [leadSelecionado, setLeadSelecionado] = useState<Lead | null>(null);
   const [openLeadModal, setOpenLeadModal] = useState(false);
 
-  // ✅ Sync pipeline → modal (quando status muda no card/realtime e o modal está aberto)
-
-  // ===== INTERAÇÃO MODAL (VISUALIZAR) =====
+  // ===== INTERAÇÃO MODAL (EDITÁVEL) =====
   const [interacaoSelecionada, setInteracaoSelecionada] =
     useState<Interacao | null>(null);
   const [openInteracaoModal, setOpenInteracaoModal] = useState(false);
@@ -275,7 +286,7 @@ export default function DashboardPage() {
     // 1️⃣ Atualiza backend (gera interação automaticamente)
     await updateLeadStatus(lead.id, newStatus);
 
-    // 2️⃣ UX otimista (move o card instantaneamente)
+    // 2️⃣ UX otimista
     setLeads((prev) =>
       prev.map((l) => (l.id === lead.id ? { ...l, status: newStatus } : l))
     );
@@ -297,7 +308,7 @@ export default function DashboardPage() {
     setOpenInteracaoModal(true);
   }
 
-  // ===== LOAD DATA (usado no mount + onCreated do modal de interação) =====
+  // ===== LOAD DATA =====
   async function loadData() {
     const { data: empresasData } = await supabase.from("empresas").select("*");
     const { data: leadsData } = await supabase.from("leads").select("*");
@@ -318,7 +329,6 @@ export default function DashboardPage() {
     setInteracoes((interacoesData as Interacao[]) || []);
   }
 
-  // ✅ load inicial sem “cascading renders”
   useEffect(() => {
     const t = window.setTimeout(() => {
       void loadData();
@@ -336,10 +346,8 @@ export default function DashboardPage() {
       if (!isRealtimeInteracaoRow(rowUnknown)) return;
       const row = rowUnknown;
 
-      // evita duplicar (ref atual, sem depender de closure)
       if (interacoesIdsRef.current.has(row.id)) return;
 
-      // Busca interação completa + join do nome do lead
       const { data: interacaoCompleta } = await supabase
         .from("interacoes")
         .select(
@@ -369,7 +377,6 @@ export default function DashboardPage() {
         return;
       }
 
-      // fallback (raro): injeta com o que veio do realtime
       const fallback: Interacao = {
         id: row.id,
         lead_id: row.lead_id,
@@ -415,7 +422,6 @@ export default function DashboardPage() {
       if (!isRealtimeLeadRow(rowUnknown)) return;
       const row = rowUnknown;
 
-      // 1) mescla rápido (UX) + normaliza o status
       setLeads((prev) =>
         prev.map((l) =>
           l.id === row.id
@@ -424,7 +430,6 @@ export default function DashboardPage() {
         )
       );
 
-      // 2) garante consistência (payload pode vir parcial)
       const { data: leadCompleto } = await supabase
         .from("leads")
         .select("*")
@@ -443,10 +448,8 @@ export default function DashboardPage() {
       if (!isRealtimeLeadRow(rowUnknown)) return;
       const row = rowUnknown;
 
-      // evita duplicar (ref atual)
       if (leadsIdsRef.current.has(row.id)) return;
 
-      // Busca lead completo (garante Lead válido)
       const { data: leadCompleto } = await supabase
         .from("leads")
         .select("*")
@@ -462,7 +465,6 @@ export default function DashboardPage() {
         return;
       }
 
-      // fallback (raro): só insere se tiver mínimos essenciais
       if (
         typeof row.nome === "string" &&
         typeof row.linkedin_url === "string" &&
@@ -490,9 +492,7 @@ export default function DashboardPage() {
     },
   });
 
-  // ===== DERIVADOS DO PIPELINE (STATUS DO LEAD) =====
-
-  // Normaliza status (sem quebrar tipagem)
+  // ===== DERIVADOS DO PIPELINE =====
   const leadsNormalized = useMemo(
     () =>
       leads.map((l) => ({
@@ -502,7 +502,6 @@ export default function DashboardPage() {
     [leads]
   );
 
-  // aplica busca local (UI) + filtro de status
   const leadsSearched = useMemo(() => {
     const q = searchLeads.trim().toLowerCase();
     if (!q) return leadsNormalized;
@@ -520,19 +519,17 @@ export default function DashboardPage() {
     });
   }, [leadsNormalized, searchLeads]);
 
-  // Aplica filtro ativo do pipeline
   const leadsFiltrados =
     pipelineStatus === "todos"
       ? leadsSearched
       : leadsSearched.filter((l) => l.status === pipelineStatus);
 
-  // Monta colunas com base nos status oficiais
   const pipelineColumns = PIPELINE_STATUSES.map((col) => ({
     ...col,
     leads: leadsFiltrados.filter((l) => l.status === col.key),
   }));
 
-  // empresas / interacoes buscadas (UI)
+  // empresas / interacoes buscadas
   const empresasSearched = useMemo(() => {
     const q = searchEmpresas.trim().toLowerCase();
     if (!q) return empresas;
@@ -586,13 +583,13 @@ export default function DashboardPage() {
     if (view === "leads")
       return "Pipeline e lista detalhada de leads — com filtros e status visuais.";
     if (view === "interacoes")
-      return "Histórico de interações registradas (manual e automações).";
+      return "Histórico de interações (editável) — manual e automações.";
     return "Resumo executivo da operação.";
   }
 
   return (
     <div className="space-y-6">
-      {/* ===================== TOP BAR / HEADER ===================== */}
+      {/* ===================== TOP BAR ===================== */}
       <div
         className="
           exx-card
@@ -673,11 +670,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ===================== HASDATA IMPORT ===================== */}
+      {/* ===================== IMPORTS ===================== */}
       <HasdataImportCard />
       <ApifyImportCard />
 
-      {/* ===================== STATS / NAV CARDS ===================== */}
+      {/* ===================== STATS / NAV ===================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card
           title="Empresas registradas"
@@ -697,7 +694,7 @@ export default function DashboardPage() {
 
         <Card
           title="Interações registradas"
-          subtitle="Histórico e automações"
+          subtitle="Editar + histórico"
           value={interacoes.length}
           icon={MessagesSquare}
           onClick={() => setView("interacoes")}
@@ -705,7 +702,7 @@ export default function DashboardPage() {
 
         <Card
           title="E-mail automático"
-          subtitle="Template + controle"
+          subtitle="Dia 01 • Dia 03 • Dia 07"
           value={0}
           icon={Mail}
           onClick={() => setOpenEmailModal(true)}
@@ -793,7 +790,7 @@ export default function DashboardPage() {
 
       {view === "leads" && (
         <>
-          {/* ======= PIPELINE HEADER / FILTRO / BUSCA ======= */}
+          {/* PIPELINE HEADER */}
           <div
             className="
               bg-gradient-to-br from-white to-[#E0F2FE]
@@ -869,9 +866,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ======= PIPELINE COLUNAS ======= */}
+          {/* PIPELINE COLUNAS */}
           <div className="w-full overflow-x-auto pt-2">
-            <div className="min-w-[1180px] grid grid-cols-7 gap-3">
+            <div className="min-w-[1180px] grid grid-cols-8 gap-3">
               {pipelineColumns.map((col) => {
                 const StatusIco = statusIconByKey(col.key);
                 return (
@@ -887,7 +884,6 @@ export default function DashboardPage() {
                       transition-all duration-300
                     "
                   >
-                    {/* Cabeçalho da coluna */}
                     <div className="px-3 py-3 border-b border-[#BFDBFE]/60 flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
                         <span
@@ -906,7 +902,6 @@ export default function DashboardPage() {
                         </p>
                       </div>
 
-                      {/* Badge de quantidade com cor por status */}
                       <span
                         className={`
                           text-[11px] px-2.5 py-1 rounded-full border
@@ -920,16 +915,15 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
-                    {/* Conteúdo da coluna */}
                     <div
                       className="
-    p-3 space-y-2
-    max-h-[calc(100vh-360px)]
-    overflow-y-auto
-    scrollbar-thin
-    scrollbar-thumb-slate-300
-    scrollbar-track-transparent
-  "
+                        p-3 space-y-2
+                        max-h-[calc(100vh-360px)]
+                        overflow-y-auto
+                        scrollbar-thin
+                        scrollbar-thumb-slate-300
+                        scrollbar-track-transparent
+                      "
                     >
                       {col.leads.length === 0 && (
                         <div
@@ -945,7 +939,6 @@ export default function DashboardPage() {
                         </div>
                       )}
 
-                      {/* ✅ Animação suave ao mover entre colunas (Framer Motion layout) */}
                       <AnimatePresence initial={false}>
                         {col.leads.map((lead) => {
                           const st = normalizeStatus(lead.status);
@@ -964,21 +957,21 @@ export default function DashboardPage() {
                               }}
                               onClick={() => abrirLead(lead)}
                               className="
-  group
-  relative overflow-hidden
-  w-full text-left
-  rounded-xl
-  bg-gradient-to-br from-white/90 to-[#E0F2FE]
-  border border-[#BFDBFE]
-  hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
-  hover:-translate-y-[2px]
-  transition-all duration-300
-  px-3 py-2
-"
+                                group
+                                relative overflow-hidden
+                                w-full text-left
+                                rounded-xl
+                                bg-gradient-to-br from-white/90 to-[#E0F2FE]
+                                border border-[#BFDBFE]
+                                hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
+                                hover:-translate-y-[2px]
+                                transition-all duration-300
+                                px-3 py-2
+                              "
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-extrabold text-slate-900 line-clamp--2 leading-snug">
+                                  <p className="text-sm font-extrabold text-slate-900 line-clamp-2 leading-snug">
                                     {lead.nome}
                                   </p>
                                   <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
@@ -1010,7 +1003,7 @@ export default function DashboardPage() {
                                   {lead.perfil}
                                 </span>
 
-                                {/* ✅ DROPDOWN STATUS (CARD PIPELINE) */}
+                                {/* DROPDOWN STATUS (CARD) */}
                                 <div
                                   className="flex items-center gap-2"
                                   onClick={(e) => e.stopPropagation()}
@@ -1053,7 +1046,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ======= LISTA DETALHADA ======= */}
           <LeadsSection
             leads={leadsSearched}
             onSelect={abrirLead}
@@ -1083,8 +1075,7 @@ export default function DashboardPage() {
                 Interações registradas
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Visual executivo das interações (manual e automações). Clique
-                para abrir detalhes.
+                Cards editáveis (SaaS). Clique para abrir e editar.
               </p>
             </div>
 
@@ -1155,10 +1146,18 @@ export default function DashboardPage() {
         }}
       />
 
+      {/* ✅ Modal de interação agora precisa ser "operacional" */}
       <InteracaoModal
         open={openInteracaoModal}
         onClose={() => setOpenInteracaoModal(false)}
         interacao={interacaoSelecionada}
+        onUpdated={() => void loadData()}
+        onOpenLead={(leadId) => {
+          const found = leads.find((l) => l.id === leadId) || null;
+          setLeadSelecionado(found);
+          setOpenLeadModal(true);
+        }}
+        onCreateNew={() => setOpenNovaInteracaoModal(true)}
       />
 
       <EmailTemplateModal
@@ -1394,23 +1393,19 @@ function EmpresasSection({
             <div className="mt-4 flex items-center gap-2">
               {emp.site && (
                 <a
-                  href={
-                    emp.site.startsWith("http")
-                      ? emp.site
-                      : `https://${emp.site}`
-                  }
+                  href={emp.site.startsWith("http") ? emp.site : `https://${emp.site}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="
-        inline-flex items-center gap-2
-        text-[11px] font-semibold
-        px-3 py-1.5 rounded-xl
-        bg-slate-900 text-white
-        shadow-sm
-        hover:bg-slate-800
-        transition
-      "
+                    inline-flex items-center gap-2
+                    text-[11px] font-semibold
+                    px-3 py-1.5 rounded-xl
+                    bg-slate-900 text-white
+                    shadow-sm
+                    hover:bg-slate-800
+                    transition
+                  "
                   title={emp.site}
                 >
                   <Globe size={14} />
@@ -1425,15 +1420,15 @@ function EmpresasSection({
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="
-        inline-flex items-center gap-2
-        text-[11px] font-semibold
-        px-3 py-1.5 rounded-xl
-        border border-[#BFDBFE]
-        bg-white/70 text-[#0A2A5F]
-        shadow-sm
-        hover:bg-white
-        transition
-      "
+                    inline-flex items-center gap-2
+                    text-[11px] font-semibold
+                    px-3 py-1.5 rounded-xl
+                    border border-[#BFDBFE]
+                    bg-white/70 text-[#0A2A5F]
+                    shadow-sm
+                    hover:bg-white
+                    transition
+                  "
                   title={emp.linkedin_url}
                 >
                   <Linkedin size={14} />
@@ -1443,10 +1438,10 @@ function EmpresasSection({
 
               <span
                 className="
-      ml-auto
-      opacity-0 group-hover:opacity-100
-      transition text-[#0A2A5F]
-    "
+                  ml-auto
+                  opacity-0 group-hover:opacity-100
+                  transition text-[#0A2A5F]
+                "
                 title="Abrir detalhes"
               >
                 <ArrowUpRight size={16} />
@@ -1501,8 +1496,7 @@ function LeadsSection({
               Lista completa (detalhada)
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Visual corporativo: hierarquia de informação + badges de status.
-              Clique para abrir o lead.
+              Visual corporativo: hierarquia + badges.
             </p>
           </div>
 
@@ -1515,7 +1509,6 @@ function LeadsSection({
                 text-xs font-semibold text-slate-700
                 shadow-sm
               "
-              title="Total geral (sem filtros)"
             >
               <Users size={14} className="text-[#0A2A5F]" />
               Total: {totalAll}
@@ -1529,7 +1522,6 @@ function LeadsSection({
                 text-xs font-semibold text-slate-700
                 shadow-sm
               "
-              title="Total exibido (com filtros/busca)"
             >
               <Filter size={14} className="text-[#0A2A5F]" />
               Exibidos: {list.length}
@@ -1544,7 +1536,6 @@ function LeadsSection({
                   text-xs font-semibold text-slate-700
                   shadow-sm
                 "
-                title="Busca aplicada"
               >
                 <Search size={14} className="text-[#0A2A5F]" />
                 Busca ativa
@@ -1555,12 +1546,7 @@ function LeadsSection({
       </div>
 
       {list.length === 0 && (
-        <div
-          className="
-            bg-white/70 border border-[#BFDBFE]
-            rounded-2xl p-6
-          "
-        >
+        <div className="bg-white/70 border border-[#BFDBFE] rounded-2xl p-6">
           <p className="text-slate-500 text-sm">
             Nenhum lead encontrado com os filtros atuais.
           </p>
@@ -1578,17 +1564,17 @@ function LeadsSection({
               key={lead.id}
               onClick={() => onSelect(lead)}
               className="
-    group
-    relative
-    overflow-hidden
-    bg-gradient-to-br from-white to-[#E0F2FE]
-    border border-[#BFDBFE]
-    rounded-2xl shadow-sm
-    hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-    hover:-translate-y-[2px]
-    transition-all duration-300
-    p-5 text-left
-  "
+                group
+                relative
+                overflow-hidden
+                bg-gradient-to-br from-white to-[#E0F2FE]
+                border border-[#BFDBFE]
+                rounded-2xl shadow-sm
+                hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+                hover:-translate-y-[2px]
+                transition-all duration-300
+                p-5 text-left
+              "
             >
               <div className="mt-4 flex flex-wrap items-center gap-2 leading-none">
                 <div className="min-w-0 space-y-0.5">
@@ -1609,7 +1595,6 @@ function LeadsSection({
                     shadow-sm
                     group-hover:shadow transition
                   "
-                  title="Status"
                 >
                   <StatusIco size={16} className="text-[#0A2A5F]" />
                 </span>
@@ -1667,7 +1652,6 @@ function LeadsSection({
                     opacity-0 group-hover:opacity-100
                     transition text-[#0A2A5F]
                   "
-                  title="Abrir detalhes"
                 >
                   <ArrowUpRight size={16} />
                 </span>
@@ -1692,12 +1676,7 @@ function InteracoesSection({
   return (
     <div className="space-y-4 pt-2">
       {interacoes.length === 0 && (
-        <div
-          className="
-            bg-white/70 border border-[#BFDBFE]
-            rounded-2xl p-6
-          "
-        >
+        <div className="bg-white/70 border border-[#BFDBFE] rounded-2xl p-6">
           <p className="text-slate-500 text-sm">
             Nenhuma interação registrada ainda.
           </p>

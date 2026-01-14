@@ -1,4 +1,4 @@
-// src\components\lead-modal.tsx
+// src/components/lead-modal.tsx
 "use client";
 
 import {
@@ -33,18 +33,15 @@ import {
   BadgeCheck,
   BadgeAlert,
   BadgeHelp,
+  Flame,
 } from "lucide-react";
 import { InteracaoCreateModal } from "@/components/interacao-create-modal";
 
-/* ===================== PIPELINE (mesmo padrão do card) ===================== */
-/**
- * ✅ Importante:
- * - No modal, o status também é LeadStatus (domínio)
- * - Labels seguem o padrão do pipeline no dashboard
- */
+/* ===================== PIPELINE ===================== */
 const LEAD_STATUS_OPTIONS: ReadonlyArray<{ key: LeadStatus; label: string }> = [
   { key: "novo", label: "Novo" },
   { key: "email_enviado", label: "Contato realizado" },
+  { key: "aquecimento", label: "Aquecimento" },
   { key: "contatado", label: "Em contato" },
   { key: "interessado", label: "Interessado" },
   { key: "qualificado", label: "Qualificado" },
@@ -56,6 +53,7 @@ const LEAD_STATUS_OPTIONS: ReadonlyArray<{ key: LeadStatus; label: string }> = [
 const STATUS_COLORS: Record<LeadStatus, string> = {
   novo: "bg-blue-100 text-blue-700 border-blue-300",
   email_enviado: "bg-sky-100 text-sky-700 border-sky-300",
+  aquecimento: "bg-orange-100 text-orange-700 border-orange-300",
   contatado: "bg-indigo-100 text-indigo-700 border-indigo-300",
   follow_up: "bg-indigo-100 text-indigo-700 border-indigo-300",
   respondeu: "bg-purple-100 text-purple-700 border-purple-300",
@@ -71,10 +69,13 @@ function statusIcon(status: LeadStatus) {
   if (status === "fechado") return BadgeCheck;
   if (status === "perdido") return BadgeAlert;
   if (status === "frio") return BadgeHelp;
+  if (status === "aquecimento") return Flame;
   return CalendarClock;
 }
 
-function normalizeStatus(value: LeadStatus | string | null | undefined): LeadStatus {
+function normalizeStatus(
+  value: LeadStatus | string | null | undefined
+): LeadStatus {
   const v = (value || "").trim().toLowerCase();
 
   const map: Record<string, LeadStatus> = {
@@ -90,6 +91,7 @@ function normalizeStatus(value: LeadStatus | string | null | undefined): LeadSta
     [
       "novo",
       "email_enviado",
+      "aquecimento",
       "contatado",
       "follow_up",
       "respondeu",
@@ -357,7 +359,9 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
         >
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-[#0A2A5F] flex items-center justify-between gap-3">
-              <span className="truncate">{isEditing ? "✏️ Editar Lead" : lead.nome}</span>
+              <span className="truncate">
+                {isEditing ? "✏️ Editar Lead" : lead.nome}
+              </span>
 
               {/* ✅ Status no cabeçalho do modal (enterprise) */}
               <span className="shrink-0 inline-flex items-center gap-2">
@@ -376,7 +380,9 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
                 <select
                   value={statusLocal}
                   disabled={updatingStatus}
-                  onChange={(e) => handleStatusChange(e.target.value as LeadStatus)}
+                  onChange={(e) =>
+                    handleStatusChange(e.target.value as LeadStatus)
+                  }
                   className={`
                     text-[12px] px-3 py-2 rounded-xl border
                     bg-white/80

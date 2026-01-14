@@ -1,6 +1,7 @@
 export type LeadStatus =
   | "novo"
   | "email_enviado"
+  | "aquecimento"   // ✅ NOVO STATUS REAL
   | "contatado"
   | "follow_up"
   | "respondeu"
@@ -22,6 +23,6 @@ export type Lead = {
   empresa_id: string | null;
   criado_em: string;
 
-  // ✅ JÁ EXISTE NO BANCO
+  // domínio real do banco
   status: LeadStatus;
 };

@@ -16,27 +16,43 @@ const interacaoSchema = z.object({
     "fechado",
     "perdido",
   ]),
-  canal: z.enum([
-    "linkedin",
-    "email",
-    "telefone",
-    "reuniao",
-  ]).optional().nullable(),
+  canal: z
+    .enum([
+      "linkedin",
+      "email",
+      "telefone",
+      "reuniao",
+    ])
+    .optional()
+    .nullable(),
   observacao: z.string().optional().nullable(),
 });
 
 /* ======================================================
-   MAPA: INTERAÇÃO → STATUS DO LEAD (PIPELINE OFICIAL)
+   MAPA: INTERAÇÃO → STATUS DO LEAD
+   ⚠️ REGRA DE NEGÓCIO:
+   - NÃO dispara n8n
+   - NÃO usa status inexistente
+   - NÃO cria status intermediário fake
 ====================================================== */
 
 function mapInteracaoParaStatusLead(
   statusInteracao: string
 ): string | null {
-  const map: Record<string, string> = {
-    contatado: "em_contato",
+  const map: Record<string, string | null> = {
+    // ✅ existe no enum
+    contatado: "contatado",
+
+    // resposta real do lead
     respondeu: "interessado",
-    follow_up: "em_contato",
+
+    // follow-up NÃO muda pipeline
+    follow_up: null,
+
+    // negociação real
     negociacao: "qualificado",
+
+    // finais
     fechado: "fechado",
     perdido: "perdido",
   };
@@ -55,14 +71,19 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Dados inválidos", details: parsed.error.flatten() },
+        {
+          error: "Dados inválidos",
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
 
     const { lead_id, status, canal, observacao } = parsed.data;
 
-    /* 1. Verifica se o lead existe */
+    /* ==================================================
+       1. Verifica se o lead existe
+    ================================================== */
     const { data: lead, error: leadError } = await supabaseAdmin
       .from("leads")
       .select("id")
@@ -76,7 +97,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    /* 2. Cria a interação */
+    /* ==================================================
+       2. Cria a interação (HISTÓRICO / AUDITORIA)
+    ================================================== */
     const { data: interacao, error: interacaoError } =
       await supabaseAdmin
         .from("interacoes")
@@ -97,13 +120,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    /* 3. Atualiza status do lead automaticamente */
+    /* ==================================================
+       3. Atualiza status do lead (SEM N8N)
+       ⚠️ Apenas status reais do enum
+    ================================================== */
     const novoStatusLead = mapInteracaoParaStatusLead(status);
 
     if (novoStatusLead) {
       const { error: updateError } = await supabaseAdmin
         .from("leads")
-        .update({ status: novoStatusLead })
+        .update({
+          status: novoStatusLead,
+          atualizado_em: new Date().toISOString(),
+        })
         .eq("id", lead_id);
 
       if (updateError) {
@@ -111,11 +140,13 @@ export async function POST(req: NextRequest) {
           "Erro ao atualizar status do lead:",
           updateError
         );
-        // não quebra o fluxo
+        // ⚠️ não quebra o fluxo
       }
     }
 
-    /* 4. Retorno */
+    /* ==================================================
+       4. Retorno
+    ================================================== */
     return NextResponse.json(
       {
         message: "Interação criada com sucesso",
