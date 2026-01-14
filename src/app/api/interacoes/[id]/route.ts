@@ -28,9 +28,11 @@ const updateSchema = z.object({
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params;
+
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);
 
@@ -50,7 +52,7 @@ export async function PUT(
         canal: canal ?? null,
         observacao: observacao ?? null,
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select("*")
       .single();
 
@@ -62,7 +64,10 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { message: "Interação atualizada com sucesso", interacao: data },
+      {
+        message: "Interação atualizada com sucesso",
+        interacao: data,
+      },
       { status: 200 }
     );
   } catch (err) {
