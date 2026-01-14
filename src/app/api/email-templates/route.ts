@@ -1,39 +1,32 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+type Etapa = "day01" | "day03" | "day07";
+
+function isEtapa(v: unknown): v is Etapa {
+  return v === "day01" || v === "day03" || v === "day07";
+}
+
 export async function GET() {
   try {
+    // retorna as 3 etapas (SaaS)
     const { data, error } = await supabaseAdmin
-      .from("email_template")
+      .from("email_templates")
       .select("*")
-      .limit(1)
-      .single();
+      .in("etapa", ["day01", "day03", "day07"])
+      .order("etapa", { ascending: true });
 
     if (error) {
-      console.error("Erro ao buscar template:", error);
+      console.error("Erro ao buscar email_templates:", error);
       return NextResponse.json(
-        { error: "Erro ao buscar template", details: error.message },
+        { error: "Erro ao buscar templates", details: error.message },
         { status: 500 }
       );
     }
 
-    // se não existir ainda, retorna formato padrão
-    if (!data) {
-      return NextResponse.json(
-        {
-          id: "default",
-          assunto: "",
-          email_template: "",
-          assinatura: "",
-          ativo: true,
-        },
-        { status: 200 }
-      );
-    }
-
-    return NextResponse.json(data, { status: 200 });
+    return NextResponse.json(data ?? [], { status: 200 });
   } catch (err) {
-    console.error("Erro interno GET /email-template:", err);
+    console.error("Erro interno GET /email-templates:", err);
     return NextResponse.json(
       { error: "Erro interno ao processar" },
       { status: 500 }
@@ -44,30 +37,31 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, assunto, email_template, assinatura, ativo } = body;
+    const { id, etapa, assunto, email_template, assinatura, ativo } = body;
 
     if (!id || typeof id !== "string") {
-      return NextResponse.json(
-        { error: "ID inválido ou ausente" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
+    if (!isEtapa(etapa)) {
+      return NextResponse.json({ error: "Etapa inválida" }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin
-      .from("email_template")
+      .from("email_templates")
       .upsert({
         id,
+        etapa,
         assunto: assunto ?? "",
         email_template: email_template ?? "",
         assinatura: assinatura ?? "",
-        ativo: ativo ?? true,
-        atualizado_em: new Date().toISOString(),
+        ativo: typeof ativo === "boolean" ? ativo : true,
       })
       .select("*")
       .single();
 
     if (error) {
-      console.error("Erro ao salvar template:", error);
+      console.error("Erro ao salvar email_templates:", error);
       return NextResponse.json(
         { error: "Erro ao salvar template", details: error.message },
         { status: 500 }
@@ -79,7 +73,7 @@ export async function PUT(req: Request) {
       { status: 200 }
     );
   } catch (err) {
-    console.error("Erro interno PUT /email-template:", err);
+    console.error("Erro interno PUT /email-templates:", err);
     return NextResponse.json(
       { error: "Erro interno ao processar" },
       { status: 500 }
