@@ -867,19 +867,15 @@ export default function DashboardPage() {
           </div>
 
           {/* PIPELINE COLUNAS */}
-          <div className="relative w-full">
-            {/* viewport isolado */}
-            <div className="w-full overflow-x-auto overflow-y-hidden">
-              {/* trilho */}
-              <div className="inline-flex gap-3 px-1">
+          <div className="relative w-full max-w-full overflow-hidden pt-2">
+            <div className="relative w-full max-w-full overflow-x-auto">
+              <div className="flex gap-3 px-2 w-max">
                 {pipelineColumns.map((col) => {
                   const StatusIco = statusIconByKey(col.key);
-
                   return (
                     <div
                       key={col.key}
                       className="
-              w-[260px] shrink-0
               rounded-2xl border
               bg-gradient-to-br from-white to-[#E0F2FE]
               border-[#BFDBFE]
