@@ -868,7 +868,7 @@ export default function DashboardPage() {
 
           {/* PIPELINE COLUNAS */}
           <div className="w-full overflow-x-auto pt-2">
-            <div className="min-w-[1400px] grid grid-cols-[repeat(8,minmax(220px,1fr))] gap-3">
+            <div className="min-w-[1150px] grid grid-cols-[repeat(8,minmax(220px,1fr))] gap-3">
               {pipelineColumns.map((col) => {
                 const StatusIco = statusIconByKey(col.key);
                 return (
