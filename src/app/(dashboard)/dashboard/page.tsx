@@ -117,7 +117,7 @@ function isPipelineStatusKey(value: string): value is PipelineStatusKey {
 }
 
 function normalizeStatus(
-  value: LeadStatus | string | null | undefined
+  value: LeadStatus | string | null | undefined,
 ): LeadStatus {
   const v = (value || "").trim().toLowerCase();
 
@@ -229,9 +229,9 @@ function formatEmpresaTamanho(tamanho?: string | null) {
 /* ===================== PAGE ===================== */
 
 export default function DashboardPage() {
-  const [view, setView] = useState<"home" | "empresas" | "leads" | "interacoes">(
-    "home"
-  );
+  const [view, setView] = useState<
+    "home" | "empresas" | "leads" | "interacoes"
+  >("home");
 
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -257,7 +257,7 @@ export default function DashboardPage() {
 
   // ===== EMPRESA MODAL =====
   const [empresaSelecionada, setEmpresaSelecionada] = useState<Empresa | null>(
-    null
+    null,
   );
   const [openEmpresaModal, setOpenEmpresaModal] = useState(false);
 
@@ -288,7 +288,7 @@ export default function DashboardPage() {
 
     // 2️⃣ UX otimista
     setLeads((prev) =>
-      prev.map((l) => (l.id === lead.id ? { ...l, status: newStatus } : l))
+      prev.map((l) => (l.id === lead.id ? { ...l, status: newStatus } : l)),
     );
   }
 
@@ -320,7 +320,7 @@ export default function DashboardPage() {
         lead:leads (
           nome
         )
-      `
+      `,
       )
       .order("criado_em", { ascending: false });
 
@@ -356,7 +356,7 @@ export default function DashboardPage() {
           lead:leads (
             nome
           )
-        `
+        `,
         )
         .eq("id", row.id)
         .single();
@@ -413,8 +413,8 @@ export default function DashboardPage() {
                 observacao: row.observacao ?? it.observacao ?? null,
                 criado_em: row.criado_em ?? it.criado_em,
               }
-            : it
-        )
+            : it,
+        ),
       );
     },
 
@@ -426,8 +426,8 @@ export default function DashboardPage() {
         prev.map((l) =>
           l.id === row.id
             ? { ...l, ...row, status: normalizeStatus(row.status) }
-            : l
-        )
+            : l,
+        ),
       );
 
       const { data: leadCompleto } = await supabase
@@ -439,7 +439,7 @@ export default function DashboardPage() {
       if (leadCompleto) {
         const item = leadCompleto as Lead;
         setLeads((prev) =>
-          prev.map((l) => (l.id === item.id ? { ...l, ...item } : l))
+          prev.map((l) => (l.id === item.id ? { ...l, ...item } : l)),
         );
       }
     },
@@ -499,7 +499,7 @@ export default function DashboardPage() {
         ...l,
         status: normalizeStatus(l.status),
       })),
-    [leads]
+    [leads],
   );
 
   const leadsSearched = useMemo(() => {
@@ -868,70 +868,72 @@ export default function DashboardPage() {
 
           {/* PIPELINE COLUNAS */}
           <div className="w-full overflow-x-auto pt-2">
-            <div className="min-w-[1150px] grid grid-cols-[repeat(8,minmax(220px,1fr))] gap-3">
+            <div className="min-w-[1760px] grid grid-cols-[repeat(8,minmax(220px,1fr))] gap-3">
               {pipelineColumns.map((col) => {
                 const StatusIco = statusIconByKey(col.key);
                 return (
                   <div
                     key={col.key}
                     className="
-                      rounded-2xl border
-                      bg-gradient-to-br from-white to-[#E0F2FE]
-                      border-[#BFDBFE]
-                      shadow-sm
-                      hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-                      hover:-translate-y-[2px]
-                      transition-all duration-300
-                    "
+            rounded-2xl border
+            bg-gradient-to-br from-white to-[#E0F2FE]
+            border-[#BFDBFE]
+            shadow-sm
+            hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+            hover:-translate-y-[2px]
+            transition-all duration-300
+          "
                   >
+                    {/* HEADER DA COLUNA */}
                     <div className="px-3 py-3 border-b border-[#BFDBFE]/60 flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
                         <span
                           className="
-                            w-9 h-9 rounded-xl
-                            bg-white/70 border border-[#BFDBFE]
-                            flex items-center justify-center
-                            shadow-sm
-                          "
+                  w-9 h-9 rounded-xl
+                  bg-white/70 border border-[#BFDBFE]
+                  flex items-center justify-center
+                  shadow-sm
+                "
                         >
                           <StatusIco size={16} className="text-[#0A2A5F]" />
                         </span>
 
-                        <p className="text-sm font-extrabold text-[#0A2A5F] leading-tight">
+                        <p className="text-sm font-extrabold text-[#0A2A5F] leading-tight truncate">
                           {col.label}
                         </p>
                       </div>
 
                       <span
                         className={`
-                          text-[11px] px-2.5 py-1 rounded-full border
-                          ${
-                            STATUS_COLORS[col.key] ??
-                            "bg-slate-100 text-slate-700 border-slate-300"
-                          }
-                        `}
+                text-[11px] px-2.5 py-1 rounded-full border
+                ${
+                  STATUS_COLORS[col.key] ??
+                  "bg-slate-100 text-slate-700 border-slate-300"
+                }
+              `}
                       >
                         {col.leads.length}
                       </span>
                     </div>
 
+                    {/* LISTA DE LEADS */}
                     <div
                       className="
-                        p-3 space-y-2
-                        max-h-[calc(100vh-360px)]
-                        overflow-y-auto
-                        scrollbar-thin
-                        scrollbar-thumb-slate-300
-                        scrollbar-track-transparent
-                      "
+              p-3 space-y-2
+              max-h-[calc(100vh-360px)]
+              overflow-y-auto
+              scrollbar-thin
+              scrollbar-thumb-slate-300
+              scrollbar-track-transparent
+            "
                     >
                       {col.leads.length === 0 && (
                         <div
                           className="
-                            rounded-xl border border-dashed border-[#BFDBFE]
-                            bg-white/50
-                            p-3
-                          "
+                  rounded-xl border border-dashed border-[#BFDBFE]
+                  bg-white/50
+                  p-3
+                "
                         >
                           <p className="text-xs text-slate-400">
                             Sem leads aqui.
@@ -957,21 +959,22 @@ export default function DashboardPage() {
                               }}
                               onClick={() => abrirLead(lead)}
                               className="
-                                group
-                                relative overflow-hidden
-                                w-full text-left
-                                rounded-xl
-                                bg-gradient-to-br from-white/90 to-[#E0F2FE]
-                                border border-[#BFDBFE]
-                                hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
-                                hover:-translate-y-[2px]
-                                transition-all duration-300
-                                px-4 py-3
-                              "
+                      group
+                      relative overflow-hidden
+                      w-full text-left
+                      rounded-xl
+                      bg-gradient-to-br from-white/90 to-[#E0F2FE]
+                      border border-[#BFDBFE]
+                      hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
+                      hover:-translate-y-[2px]
+                      transition-all duration-300
+                      px-3 py-2
+                    "
                             >
+                              {/* NOME + CARGO */}
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-extrabold text-slate-900 line-clamp-2 leading-snug">
+                                  <p className="text-sm font-extrabold text-slate-900 leading-[1.25] line-clamp-2">
                                     {lead.nome}
                                   </p>
                                   <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
@@ -981,29 +984,30 @@ export default function DashboardPage() {
 
                                 <span
                                   className="
-                                    opacity-0 group-hover:opacity-100
-                                    transition
-                                    text-[#0A2A5F]
-                                  "
+                          opacity-0 group-hover:opacity-100
+                          translate-y-0.5 group-hover:translate-y-0
+                          transition-all duration-200
+                          text-[#0A2A5F]
+                        "
                                   title="Abrir detalhes"
                                 >
                                   <ArrowUpRight size={16} />
                                 </span>
                               </div>
 
-                              <div className="mt-3 flex items-center justify-between gap-2">
+                              {/* PERFIL + STATUS */}
+                              <div className="mt-2 flex items-center justify-between gap-2">
                                 <span
                                   className="
-                                    text-[10px] uppercase tracking-wide
-                                    text-slate-600
-                                    px-2 py-1 rounded-full
-                                    bg-white/70 border border-[#BFDBFE]
-                                  "
+                          text-[10px] uppercase tracking-wide
+                          text-slate-600
+                          px-1.5 py-0.5 rounded-full
+                          bg-white/70 border border-[#BFDBFE]
+                        "
                                 >
                                   {lead.perfil}
                                 </span>
 
-                                {/* DROPDOWN STATUS (CARD) */}
                                 <div
                                   className="flex items-center gap-2"
                                   onClick={(e) => e.stopPropagation()}
@@ -1017,14 +1021,15 @@ export default function DashboardPage() {
                                       void onChangeLeadStatus(lead, next);
                                     }}
                                     className={`
-                                      text-[11px] px-2.5 py-1 rounded-full border
-                                      bg-white/80
-                                      focus:outline-none focus:ring-2 focus:ring-slate-900/10
-                                      ${
-                                        STATUS_COLORS[st] ??
-                                        "bg-slate-100 text-slate-700 border-slate-300"
-                                      }
-                                    `}
+                            w-[108px]
+                            text-[11px] px-2 py-1 rounded-full border
+                            bg-white/80
+                            focus:outline-none focus:ring-2 focus:ring-slate-900/10
+                            ${
+                              STATUS_COLORS[st] ??
+                              "bg-slate-100 text-slate-700 border-slate-300"
+                            }
+                          `}
                                     title="Alterar status do lead"
                                   >
                                     {PIPELINE_STATUSES.map((s) => (
@@ -1393,7 +1398,11 @@ function EmpresasSection({
             <div className="mt-4 flex items-center gap-2">
               {emp.site && (
                 <a
-                  href={emp.site.startsWith("http") ? emp.site : `https://${emp.site}`}
+                  href={
+                    emp.site.startsWith("http")
+                      ? emp.site
+                      : `https://${emp.site}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
