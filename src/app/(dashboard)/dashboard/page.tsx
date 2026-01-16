@@ -868,7 +868,7 @@ export default function DashboardPage() {
 
           {/* PIPELINE COLUNAS */}
           <div className="w-full overflow-x-auto pt-2">
-            <div className="min-w-[1180px] grid grid-cols-8 gap-3">
+            <div className="min-w-[1400px] grid grid-cols-[repeat(8,minmax(220px,1fr))] gap-3">
               {pipelineColumns.map((col) => {
                 const StatusIco = statusIconByKey(col.key);
                 return (
@@ -897,7 +897,7 @@ export default function DashboardPage() {
                           <StatusIco size={16} className="text-[#0A2A5F]" />
                         </span>
 
-                        <p className="text-sm font-extrabold text-[#0A2A5F] truncate">
+                        <p className="text-sm font-extrabold text-[#0A2A5F] leading-tight">
                           {col.label}
                         </p>
                       </div>
@@ -966,7 +966,7 @@ export default function DashboardPage() {
                                 hover:shadow-[0_0_12px_3px_rgba(191,219,254,0.75)]
                                 hover:-translate-y-[2px]
                                 transition-all duration-300
-                                px-3 py-2
+                                px-4 py-3
                               "
                             >
                               <div className="flex items-start justify-between gap-2">
