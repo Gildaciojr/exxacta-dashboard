@@ -588,7 +588,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 overflow-x-hidden">
+    <div className="space-y-6 w-full max-w-full overflow-hidden">
       {/* ===================== TOP BAR ===================== */}
       <div
         className="
@@ -867,24 +867,27 @@ export default function DashboardPage() {
           </div>
 
           {/* PIPELINE COLUNAS */}
-          <div className="relative w-full pt-2">
-            <div className="overflow-x-auto overscroll-x-contain">
-              <div className="flex gap-3 min-w-max px-1">
+          <div className="relative w-full">
+            {/* viewport isolado */}
+            <div className="w-full overflow-x-auto overflow-y-hidden">
+              {/* trilho */}
+              <div className="inline-flex gap-3 px-1">
                 {pipelineColumns.map((col) => {
                   const StatusIco = statusIconByKey(col.key);
+
                   return (
                     <div
                       key={col.key}
                       className="
-    w-[260px] flex-shrink-0
-    rounded-2xl border
-    bg-gradient-to-br from-white to-[#E0F2FE]
-    border-[#BFDBFE]
-    shadow-sm
-    hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
-    hover:-translate-y-[2px]
-    transition-all duration-300
-  "
+              w-[260px] shrink-0
+              rounded-2xl border
+              bg-gradient-to-br from-white to-[#E0F2FE]
+              border-[#BFDBFE]
+              shadow-sm
+              hover:shadow-[0_0_15px_4px_rgba(191,219,254,0.75)]
+              hover:-translate-y-[2px]
+              transition-all duration-300
+            "
                     >
                       {/* HEADER DA COLUNA */}
                       <div className="px-3 py-3 border-b border-[#BFDBFE]/60 flex items-center justify-between">
