@@ -23,18 +23,27 @@ type TemplateForm = {
   id: string; // ✅ precisa ser UUID válido
   etapa: Etapa;
   assunto: string;
+
+  /**
+   * ⚠️ IMPORTANTE (alinhamento com Supabase):
+   * A tabela `email_templates` tem coluna `corpo` (text) e NÃO tem `email_template`/`assinatura`.
+   *
+   * ✅ Mantemos estes 2 campos no frontend (sem “simplificar” seu modal),
+   * mas ao SALVAR nós unimos os dois em `corpo`.
+   * Ao CARREGAR nós tentamos separar `corpo` em (mensagem + assinatura) de forma defensiva.
+   */
   email_template: string;
   assinatura: string;
+
   ativo: boolean;
 };
 
-/** ✅ TIPO CORRETO DO RETORNO DA API (SEM any) */
+/** ✅ TIPO DO RETORNO REAL DO SUPABASE (email_templates) */
 type EmailTemplateRow = {
   id: string;
   etapa: Etapa;
   assunto: string | null;
-  email_template: string | null;
-  assinatura: string | null;
+  corpo: string | null;
   ativo: boolean | null;
 };
 
@@ -62,9 +71,94 @@ const DEFAULT_ID_BY_ETAPA: Readonly<Record<Etapa, string>> = {
   day07: "77777777-7777-7777-7777-777777777777",
 };
 
+const DEFAULT_ASSINATURA =
+  "Atenciosamente,\n{{remetente}}\nExxacta";
+
 function prettyEtapa(etapa: Etapa) {
   const found = ETAPAS.find((e) => e.key === etapa);
   return found?.label ?? etapa;
+}
+
+/* ======================================================
+   HELPERS (SEM any / SEM simplificar)
+====================================================== */
+
+/**
+ * Junta mensagem + assinatura no formato que vai para o banco (coluna `corpo`)
+ * - Mantém estrutura do seu modal (2 campos)
+ * - Banco continua com 1 coluna `corpo`
+ */
+function joinCorpo(emailTemplate: string, assinatura: string): string {
+  const t = (emailTemplate ?? "").trimEnd();
+  const s = (assinatura ?? "").trim();
+
+  if (!t && !s) return "";
+  if (t && !s) return t;
+  if (!t && s) return s;
+
+  // separador visual padrão
+  return `${t}\n\n${s}\n`;
+}
+
+/**
+ * Tenta separar o texto salvo no banco (`corpo`) em:
+ * - email_template (mensagem)
+ * - assinatura
+ *
+ * Heurística:
+ * - se encontrar uma “linha de assinatura” típica no final (Atenciosamente/Att/Abraços etc),
+ *   separa de forma defensiva.
+ * - se não encontrar, coloca tudo em email_template e usa assinatura padrão.
+ */
+function splitCorpo(
+  corpoRaw: string | null | undefined
+): { email_template: string; assinatura: string } {
+  const corpo = (corpoRaw ?? "").replace(/\r\n/g, "\n");
+
+  if (!corpo.trim()) {
+    return {
+      email_template: "",
+      assinatura: DEFAULT_ASSINATURA,
+    };
+  }
+
+  // Marcadores comuns de assinatura
+  const markers: ReadonlyArray<string> = [
+    "atenciosamente",
+    "att",
+    "abraços",
+    "cordialmente",
+    "grande abraço",
+    "sinceramente",
+  ];
+
+  // Busca por um possível início de assinatura nas últimas linhas
+  // (varre do fim para o começo procurando um marcador no começo da linha)
+  const lines = corpo.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = (lines[i] ?? "").trim().toLowerCase();
+
+    // ignora linhas vazias no final
+    if (i === lines.length - 1 && line === "") continue;
+
+    // se a linha começa com algum marcador, assume assinatura dali até o fim
+    const isMarker = markers.some((m) => line.startsWith(m));
+    if (isMarker) {
+      const msg = lines.slice(0, i).join("\n").trimEnd();
+      const sig = lines.slice(i).join("\n").trim();
+
+      return {
+        email_template: msg,
+        assinatura: sig || DEFAULT_ASSINATURA,
+      };
+    }
+  }
+
+  // fallback: não encontrou assinatura clara
+  return {
+    email_template: corpo.trimEnd(),
+    assinatura: DEFAULT_ASSINATURA,
+  };
 }
 
 /* ======================================================
@@ -91,7 +185,7 @@ export function EmailTemplateModal({
       etapa: "day01",
       assunto: "",
       email_template: "",
-      assinatura: "Atenciosamente,\n{{remetente}}\nExxacta",
+      assinatura: DEFAULT_ASSINATURA,
       ativo: true,
     },
     day03: {
@@ -99,7 +193,7 @@ export function EmailTemplateModal({
       etapa: "day03",
       assunto: "",
       email_template: "",
-      assinatura: "Atenciosamente,\n{{remetente}}\nExxacta",
+      assinatura: DEFAULT_ASSINATURA,
       ativo: true,
     },
     day07: {
@@ -107,7 +201,7 @@ export function EmailTemplateModal({
       etapa: "day07",
       assunto: "",
       email_template: "",
-      assinatura: "Atenciosamente,\n{{remetente}}\nExxacta",
+      assinatura: DEFAULT_ASSINATURA,
       ativo: true,
     },
   });
@@ -135,8 +229,20 @@ export function EmailTemplateModal({
       setLoading(true);
 
       try {
-        const res = await fetch("/api/email-templates");
+        const res = await fetch("/api/email-templates", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
         const data: EmailTemplateRow[] | unknown = await res.json();
+
+        if (!res.ok) {
+          console.error("❌ Falha GET /api/email-templates:", data);
+          alert("❌ Erro ao carregar configurações");
+          return;
+        }
 
         if (Array.isArray(data)) {
           const byEtapa = new Map<Etapa, EmailTemplateRow>();
@@ -158,23 +264,21 @@ export function EmailTemplateModal({
               const row = byEtapa.get(k);
 
               // ✅ id SEMPRE deve ser UUID válido
-              // Se o banco retornar id, usamos ele.
-              // Se não retornar, usamos o UUID fixo daquela etapa.
               const safeId =
-                (typeof row?.id === "string" && row.id.length > 0
+                typeof row?.id === "string" && row.id.length > 0
                   ? row.id
-                  : DEFAULT_ID_BY_ETAPA[k]);
+                  : DEFAULT_ID_BY_ETAPA[k];
+
+              const parsed = splitCorpo(row?.corpo ?? null);
 
               next[k] = {
                 id: safeId,
                 etapa: k,
                 assunto: row?.assunto ?? prev[k].assunto,
-                email_template: row?.email_template ?? prev[k].email_template,
-                assinatura: row?.assinatura ?? prev[k].assinatura,
+                email_template: parsed.email_template ?? prev[k].email_template,
+                assinatura: parsed.assinatura ?? prev[k].assinatura,
                 ativo:
-                  typeof row?.ativo === "boolean"
-                    ? row.ativo
-                    : prev[k].ativo,
+                  typeof row?.ativo === "boolean" ? row.ativo : prev[k].ativo,
               };
             });
 
@@ -183,6 +287,10 @@ export function EmailTemplateModal({
 
           return;
         }
+
+        // Se não vier array, tratamos como erro defensivo
+        console.error("❌ Retorno inesperado GET /api/email-templates:", data);
+        alert("❌ Erro ao carregar configurações");
       } catch (err) {
         console.error("Erro ao carregar templates:", err);
         alert("❌ Erro ao carregar configurações");
@@ -203,16 +311,19 @@ export function EmailTemplateModal({
     try {
       // ✅ GARANTE QUE SEMPRE VAI UM UUID VÁLIDO
       const safeId =
-        (typeof current.id === "string" && current.id.length > 0
+        typeof current.id === "string" && current.id.length > 0
           ? current.id
-          : DEFAULT_ID_BY_ETAPA[current.etapa]);
+          : DEFAULT_ID_BY_ETAPA[current.etapa];
+
+      // ✅ ALINHAMENTO COM SUPABASE:
+      // salvar em `corpo` (coluna existente), juntando email_template + assinatura
+      const corpoFinal = joinCorpo(current.email_template, current.assinatura);
 
       const payload = {
         id: safeId,
         etapa: current.etapa,
-        assunto: current.assunto,
-        email_template: current.email_template,
-        assinatura: current.assinatura,
+        assunto: current.assunto ?? "",
+        corpo: corpoFinal,
         ativo: current.ativo,
       };
 
@@ -327,16 +438,12 @@ export function EmailTemplateModal({
               <Textarea
                 rows={3}
                 value={current.assinatura}
-                onChange={(e) =>
-                  patchCurrent({ assinatura: e.target.value })
-                }
+                onChange={(e) => patchCurrent({ assinatura: e.target.value })}
               />
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-sm">
-                    Ativar envio automático
-                  </p>
+                  <p className="font-semibold text-sm">Ativar envio automático</p>
                   <p className="text-xs text-slate-500">
                     Backend / n8n respeitará este status
                   </p>
