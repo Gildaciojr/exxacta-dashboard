@@ -8,74 +8,62 @@ function isEtapa(v: unknown): v is Etapa {
 }
 
 export async function GET() {
-  try {
-    // retorna as 3 etapas (SaaS)
-    const { data, error } = await supabaseAdmin
-      .from("email_templates")
-      .select("*")
-      .in("etapa", ["day01", "day03", "day07"])
-      .order("etapa", { ascending: true });
+  const { data, error } = await supabaseAdmin
+    .from("email_templates")
+    .select("*")
+    .in("etapa", ["day01", "day03", "day07"])
+    .order("etapa", { ascending: true });
 
-    if (error) {
-      console.error("Erro ao buscar email_templates:", error);
-      return NextResponse.json(
-        { error: "Erro ao buscar templates", details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(data ?? [], { status: 200 });
-  } catch (err) {
-    console.error("Erro interno GET /email-templates:", err);
+  if (error) {
+    console.error(error);
     return NextResponse.json(
-      { error: "Erro interno ao processar" },
+      { error: "Erro ao buscar templates" },
       { status: 500 }
     );
   }
+
+  return NextResponse.json(data ?? [], { status: 200 });
 }
 
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, etapa, assunto, email_template, assinatura, ativo } = body;
-
-    if (!id || typeof id !== "string") {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-    }
+    const { etapa, assunto, corpo, ativo } = body;
 
     if (!isEtapa(etapa)) {
       return NextResponse.json({ error: "Etapa inválida" }, { status: 400 });
     }
 
+    const now = new Date().toISOString();
+
     const { data, error } = await supabaseAdmin
       .from("email_templates")
-      .upsert({
-        id,
-        etapa,
-        assunto: assunto ?? "",
-        email_template: email_template ?? "",
-        assinatura: assinatura ?? "",
-        ativo: typeof ativo === "boolean" ? ativo : true,
-      })
+      .upsert(
+        {
+          etapa,
+          assunto,
+          corpo,
+          ativo: typeof ativo === "boolean" ? ativo : true,
+          atualizado_em: now,
+        },
+        { onConflict: "etapa" }
+      )
       .select("*")
       .single();
 
     if (error) {
-      console.error("Erro ao salvar email_templates:", error);
+      console.error("Erro Supabase:", error);
       return NextResponse.json(
         { error: "Erro ao salvar template", details: error.message },
         { status: 500 }
       );
     }
 
-    return NextResponse.json(
-      { message: "Template salvo com sucesso", data },
-      { status: 200 }
-    );
+    return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (err) {
-    console.error("Erro interno PUT /email-templates:", err);
+    console.error(err);
     return NextResponse.json(
-      { error: "Erro interno ao processar" },
+      { error: "Erro interno" },
       { status: 500 }
     );
   }

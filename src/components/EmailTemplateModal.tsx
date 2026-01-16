@@ -20,7 +20,7 @@ import {
 type Etapa = "day01" | "day03" | "day07";
 
 type TemplateForm = {
-  id: string; // chave fixa (ex: config-default)
+  id: string; // ✅ precisa ser UUID válido
   etapa: Etapa;
   assunto: string;
   email_template: string;
@@ -48,7 +48,19 @@ const ETAPAS: ReadonlyArray<{ key: Etapa; label: string; hint: string }> = [
   { key: "day07", label: "Dia 07", hint: "Último follow-up após 7 dias" },
 ];
 
-const DEFAULT_ID = "config-default";
+/**
+ * ✅ IMPORTANTE:
+ * Sua tabela email_templates.id é UUID.
+ * Então precisamos de um UUID válido por etapa.
+ *
+ * Esses UUIDs podem ser quaisquer valores válidos,
+ * desde que sejam fixos e NÃO mudem entre deploys.
+ */
+const DEFAULT_ID_BY_ETAPA: Readonly<Record<Etapa, string>> = {
+  day01: "11111111-1111-1111-1111-111111111111",
+  day03: "33333333-3333-3333-3333-333333333333",
+  day07: "77777777-7777-7777-7777-777777777777",
+};
 
 function prettyEtapa(etapa: Etapa) {
   const found = ETAPAS.find((e) => e.key === etapa);
@@ -75,7 +87,7 @@ export function EmailTemplateModal({
   // cache local por etapa (SaaS real)
   const [drafts, setDrafts] = useState<Record<Etapa, TemplateForm>>({
     day01: {
-      id: DEFAULT_ID,
+      id: DEFAULT_ID_BY_ETAPA.day01,
       etapa: "day01",
       assunto: "",
       email_template: "",
@@ -83,7 +95,7 @@ export function EmailTemplateModal({
       ativo: true,
     },
     day03: {
-      id: DEFAULT_ID,
+      id: DEFAULT_ID_BY_ETAPA.day03,
       etapa: "day03",
       assunto: "",
       email_template: "",
@@ -91,7 +103,7 @@ export function EmailTemplateModal({
       ativo: true,
     },
     day07: {
-      id: DEFAULT_ID,
+      id: DEFAULT_ID_BY_ETAPA.day07,
       etapa: "day07",
       assunto: "",
       email_template: "",
@@ -145,12 +157,19 @@ export function EmailTemplateModal({
             (["day01", "day03", "day07"] as Etapa[]).forEach((k) => {
               const row = byEtapa.get(k);
 
+              // ✅ id SEMPRE deve ser UUID válido
+              // Se o banco retornar id, usamos ele.
+              // Se não retornar, usamos o UUID fixo daquela etapa.
+              const safeId =
+                (typeof row?.id === "string" && row.id.length > 0
+                  ? row.id
+                  : DEFAULT_ID_BY_ETAPA[k]);
+
               next[k] = {
-                id: row?.id ?? DEFAULT_ID,
+                id: safeId,
                 etapa: k,
                 assunto: row?.assunto ?? prev[k].assunto,
-                email_template:
-                  row?.email_template ?? prev[k].email_template,
+                email_template: row?.email_template ?? prev[k].email_template,
                 assinatura: row?.assinatura ?? prev[k].assinatura,
                 ativo:
                   typeof row?.ativo === "boolean"
@@ -182,8 +201,14 @@ export function EmailTemplateModal({
     setSaving(true);
 
     try {
+      // ✅ GARANTE QUE SEMPRE VAI UM UUID VÁLIDO
+      const safeId =
+        (typeof current.id === "string" && current.id.length > 0
+          ? current.id
+          : DEFAULT_ID_BY_ETAPA[current.etapa]);
+
       const payload = {
-        id: current.id || DEFAULT_ID,
+        id: safeId,
         etapa: current.etapa,
         assunto: current.assunto,
         email_template: current.email_template,
@@ -195,16 +220,23 @@ export function EmailTemplateModal({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-exxacta-signature":
-            process.env.NEXT_PUBLIC_EXXACTA_N8N_SECRET!,
+          "x-exxacta-signature": process.env.NEXT_PUBLIC_EXXACTA_N8N_SECRET!,
         },
         body: JSON.stringify(payload),
       });
 
-      const result = await res.json().catch(() => null);
+      const result: unknown = await res.json().catch(() => null);
 
       if (!res.ok) {
-        alert("❌ Erro ao salvar: " + (result?.error || "Erro desconhecido"));
+        const message =
+          typeof result === "object" &&
+          result !== null &&
+          "error" in result &&
+          typeof (result as { error?: unknown }).error === "string"
+            ? (result as { error: string }).error
+            : "Erro desconhecido";
+
+        alert("❌ Erro ao salvar: " + message);
         return;
       }
 
