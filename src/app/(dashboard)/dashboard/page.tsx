@@ -867,14 +867,15 @@ export default function DashboardPage() {
           </div>
 
           {/* PIPELINE COLUNAS */}
-          <div className="relative w-full overflow-x-auto pt-2">
-            <div className="w-fit min-w-full grid grid-flow-col auto-cols-[260px] gap-3">
-              {pipelineColumns.map((col) => {
-                const StatusIco = statusIconByKey(col.key);
-                return (
-                  <div
-                    key={col.key}
-                    className="
+          <div className="relative w-full pt-2 overflow-hidden">
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-[repeat(8,260px)] gap-3">
+                {pipelineColumns.map((col) => {
+                  const StatusIco = statusIconByKey(col.key);
+                  return (
+                    <div
+                      key={col.key}
+                      className="
             rounded-2xl border
             bg-gradient-to-br from-white to-[#E0F2FE]
             border-[#BFDBFE]
@@ -883,42 +884,42 @@ export default function DashboardPage() {
             hover:-translate-y-[2px]
             transition-all duration-300
           "
-                  >
-                    {/* HEADER DA COLUNA */}
-                    <div className="px-3 py-3 border-b border-[#BFDBFE]/60 flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className="
+                    >
+                      {/* HEADER DA COLUNA */}
+                      <div className="px-3 py-3 border-b border-[#BFDBFE]/60 flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="
                   w-9 h-9 rounded-xl
                   bg-white/70 border border-[#BFDBFE]
                   flex items-center justify-center
                   shadow-sm
                 "
-                        >
-                          <StatusIco size={16} className="text-[#0A2A5F]" />
-                        </span>
+                          >
+                            <StatusIco size={16} className="text-[#0A2A5F]" />
+                          </span>
 
-                        <p className="text-sm font-extrabold text-[#0A2A5F] leading-tight truncate">
-                          {col.label}
-                        </p>
-                      </div>
+                          <p className="text-sm font-extrabold text-[#0A2A5F] leading-tight truncate">
+                            {col.label}
+                          </p>
+                        </div>
 
-                      <span
-                        className={`
+                        <span
+                          className={`
                 text-[11px] px-2.5 py-1 rounded-full border
                 ${
                   STATUS_COLORS[col.key] ??
                   "bg-slate-100 text-slate-700 border-slate-300"
                 }
               `}
-                      >
-                        {col.leads.length}
-                      </span>
-                    </div>
+                        >
+                          {col.leads.length}
+                        </span>
+                      </div>
 
-                    {/* LISTA DE LEADS */}
-                    <div
-                      className="
+                      {/* LISTA DE LEADS */}
+                      <div
+                        className="
               p-3 space-y-2
               max-h-[calc(100vh-360px)]
               overflow-y-auto
@@ -926,39 +927,39 @@ export default function DashboardPage() {
               scrollbar-thumb-slate-300
               scrollbar-track-transparent
             "
-                    >
-                      {col.leads.length === 0 && (
-                        <div
-                          className="
+                      >
+                        {col.leads.length === 0 && (
+                          <div
+                            className="
                   rounded-xl border border-dashed border-[#BFDBFE]
                   bg-white/50
                   p-3
                 "
-                        >
-                          <p className="text-xs text-slate-400">
-                            Sem leads aqui.
-                          </p>
-                        </div>
-                      )}
+                          >
+                            <p className="text-xs text-slate-400">
+                              Sem leads aqui.
+                            </p>
+                          </div>
+                        )}
 
-                      <AnimatePresence initial={false}>
-                        {col.leads.map((lead) => {
-                          const st = normalizeStatus(lead.status);
-                          return (
-                            <motion.button
-                              layout
-                              layoutId={`lead-${lead.id}`}
-                              key={lead.id}
-                              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                              transition={{
-                                type: "spring",
-                                stiffness: 420,
-                                damping: 32,
-                              }}
-                              onClick={() => abrirLead(lead)}
-                              className="
+                        <AnimatePresence initial={false}>
+                          {col.leads.map((lead) => {
+                            const st = normalizeStatus(lead.status);
+                            return (
+                              <motion.button
+                                layout
+                                layoutId={`lead-${lead.id}`}
+                                key={lead.id}
+                                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                                transition={{
+                                  type: "spring",
+                                  stiffness: 420,
+                                  damping: 32,
+                                }}
+                                onClick={() => abrirLead(lead)}
+                                className="
                       group
                       relative overflow-hidden
                       w-full text-left
@@ -970,57 +971,57 @@ export default function DashboardPage() {
                       transition-all duration-300
                       px-3 py-2
                     "
-                            >
-                              {/* NOME + CARGO */}
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-extrabold text-slate-900 leading-[1.25] line-clamp-2">
-                                    {lead.nome}
-                                  </p>
-                                  <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                                    {lead.cargo || "Cargo não informado"}
-                                  </p>
-                                </div>
+                              >
+                                {/* NOME + CARGO */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-extrabold text-slate-900 leading-[1.25] line-clamp-2">
+                                      {lead.nome}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                                      {lead.cargo || "Cargo não informado"}
+                                    </p>
+                                  </div>
 
-                                <span
-                                  className="
+                                  <span
+                                    className="
                           opacity-0 group-hover:opacity-100
                           translate-y-0.5 group-hover:translate-y-0
                           transition-all duration-200
                           text-[#0A2A5F]
                         "
-                                  title="Abrir detalhes"
-                                >
-                                  <ArrowUpRight size={16} />
-                                </span>
-                              </div>
+                                    title="Abrir detalhes"
+                                  >
+                                    <ArrowUpRight size={16} />
+                                  </span>
+                                </div>
 
-                              {/* PERFIL + STATUS */}
-                              <div className="mt-2 flex items-center justify-between gap-2">
-                                <span
-                                  className="
+                                {/* PERFIL + STATUS */}
+                                <div className="mt-2 flex items-center justify-between gap-2">
+                                  <span
+                                    className="
                           text-[10px] uppercase tracking-wide
                           text-slate-600
                           px-1.5 py-0.5 rounded-full
                           bg-white/70 border border-[#BFDBFE]
                         "
-                                >
-                                  {lead.perfil}
-                                </span>
+                                  >
+                                    {lead.perfil}
+                                  </span>
 
-                                <div
-                                  className="flex items-center gap-2"
-                                  onClick={(e) => e.stopPropagation()}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                >
-                                  <select
-                                    value={st}
-                                    onChange={(e) => {
-                                      const next = e.target.value;
-                                      if (!isPipelineStatusKey(next)) return;
-                                      void onChangeLeadStatus(lead, next);
-                                    }}
-                                    className={`
+                                  <div
+                                    className="flex items-center gap-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                  >
+                                    <select
+                                      value={st}
+                                      onChange={(e) => {
+                                        const next = e.target.value;
+                                        if (!isPipelineStatusKey(next)) return;
+                                        void onChangeLeadStatus(lead, next);
+                                      }}
+                                      className={`
                             w-[108px]
                             text-[11px] px-2 py-1 rounded-full border
                             bg-white/80
@@ -1030,24 +1031,25 @@ export default function DashboardPage() {
                               "bg-slate-100 text-slate-700 border-slate-300"
                             }
                           `}
-                                    title="Alterar status do lead"
-                                  >
-                                    {PIPELINE_STATUSES.map((s) => (
-                                      <option key={s.key} value={s.key}>
-                                        {s.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                      title="Alterar status do lead"
+                                    >
+                                      {PIPELINE_STATUSES.map((s) => (
+                                        <option key={s.key} value={s.key}>
+                                          {s.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
                                 </div>
-                              </div>
-                            </motion.button>
-                          );
-                        })}
-                      </AnimatePresence>
+                              </motion.button>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
