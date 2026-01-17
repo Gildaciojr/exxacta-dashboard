@@ -206,7 +206,8 @@ async function updateLeadStatus(leadId: string, status: LeadStatus) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-exxacta-signature": process.env.EXXACTA_N8N_SECRET!,
+      "x-exxacta-signature":
+        process.env.NEXT_PUBLIC_EXXACTA_N8N_SECRET!,
     },
     body: JSON.stringify({
       lead_id: leadId,
@@ -214,6 +215,7 @@ async function updateLeadStatus(leadId: string, status: LeadStatus) {
     }),
   });
 }
+
 
 
 function formatDateBR(iso: string) {
