@@ -43,9 +43,16 @@ export function AddEntityModal({ open, onClose }: Props) {
 
   async function handleSave() {
     if (!nome) return alert("Nome é obrigatório");
-    if (!linkedin) return alert("LinkedIn é obrigatório");
+
+    if (tipo === "empresa" && !linkedin) {
+      return alert("LinkedIn é obrigatório para empresa");
+    }
 
     if (tipo === "cliente") {
+      if (!perfil.trim()) {
+        return alert("Perfil / Nicho é obrigatório para cliente");
+      }
+
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,9 +122,11 @@ export function AddEntityModal({ open, onClose }: Props) {
               flex flex-col items-center p-3 rounded-xl border w-32 cursor-pointer
               transition-all hover:scale-[1.04]
               text-sm
-              ${tipo === "cliente"
-                ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                : "bg-white border-slate-300 text-slate-700"}
+              ${
+                tipo === "cliente"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                  : "bg-white border-slate-300 text-slate-700"
+              }
             `}
           >
             <UserPlus size={24} />
@@ -130,9 +139,11 @@ export function AddEntityModal({ open, onClose }: Props) {
               flex flex-col items-center p-3 rounded-xl border w-32 cursor-pointer
               transition-all hover:scale-[1.04]
               text-sm
-              ${tipo === "empresa"
-                ? "bg-green-600 text-white border-green-600 shadow-md"
-                : "bg-white border-slate-300 text-slate-700"}
+              ${
+                tipo === "empresa"
+                  ? "bg-green-600 text-white border-green-600 shadow-md"
+                  : "bg-white border-slate-300 text-slate-700"
+              }
             `}
           >
             <Building2 size={24} />
@@ -143,34 +154,95 @@ export function AddEntityModal({ open, onClose }: Props) {
         {/* FORMULARIOS */}
         {tipo && (
           <div className="grid gap-2">
-            <input className="input" placeholder="Nome *" value={nome} onChange={e => setNome(e.target.value)} />
-            <input className="input" placeholder="LinkedIn *" value={linkedin} onChange={e => setLinkedin(e.target.value)} />
-            <input className="input" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-            <input className="input" placeholder="Telefone" value={telefone} onChange={e => setTelefone(e.target.value)} />
+            <input
+              className="input"
+              placeholder="Nome *"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="LinkedIn *"
+              value={linkedin}
+              onChange={(e) => setLinkedin(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Telefone"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+            />
           </div>
         )}
 
         {tipo === "cliente" && (
           <div className="grid gap-2 mt-4 border p-3 rounded-xl bg-white/60">
-            <input className="input" placeholder="Cargo" value={cargo} onChange={e => setCargo(e.target.value)} />
-            <input className="input" placeholder="Perfil / Nicho" value={perfil} onChange={e => setPerfil(e.target.value)} />
+            <input
+              className="input"
+              placeholder="Cargo"
+              value={cargo}
+              onChange={(e) => setCargo(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Perfil / Nicho"
+              value={perfil}
+              onChange={(e) => setPerfil(e.target.value)}
+            />
           </div>
         )}
 
         {tipo === "empresa" && (
           <div className="grid gap-2 mt-4 border p-3 rounded-xl bg-white/60 max-h-[220px] overflow-y-auto">
-            <select className="input" value={tamanho} onChange={e => setTamanho(e.target.value)}>
+            <select
+              className="input"
+              value={tamanho}
+              onChange={(e) => setTamanho(e.target.value)}
+            >
               <option value="">Tamanho da empresa *</option>
-              {TAMANHOS_EMPRESA.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+              {TAMANHOS_EMPRESA.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
               ))}
             </select>
 
-            <input className="input" placeholder="CNPJ" value={cnpj} onChange={e => setCnpj(e.target.value)} />
-            <input className="input" placeholder="Site" value={site} onChange={e => setSite(e.target.value)} />
-            <input className="input" placeholder="Cidade" value={cidade} onChange={e => setCidade(e.target.value)} />
-            <input className="input" placeholder="Estado" value={estado} onChange={e => setEstado(e.target.value)} />
-            <input className="input" placeholder="País" value={pais} onChange={e => setPais(e.target.value)} />
+            <input
+              className="input"
+              placeholder="CNPJ"
+              value={cnpj}
+              onChange={(e) => setCnpj(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Site"
+              value={site}
+              onChange={(e) => setSite(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Cidade"
+              value={cidade}
+              onChange={(e) => setCidade(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Estado"
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="País"
+              value={pais}
+              onChange={(e) => setPais(e.target.value)}
+            />
           </div>
         )}
 

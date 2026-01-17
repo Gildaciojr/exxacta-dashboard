@@ -74,7 +74,7 @@ function statusIcon(status: LeadStatus) {
 }
 
 function normalizeStatus(
-  value: LeadStatus | string | null | undefined
+  value: LeadStatus | string | null | undefined,
 ): LeadStatus {
   const v = (value || "").trim().toLowerCase();
 
@@ -159,7 +159,7 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
 
   const leadsForCreateModal = useMemo(
     () => (lead ? [{ id: lead.id, nome: lead.nome }] : []),
-    [lead]
+    [lead],
   );
 
   /* =========================================================
@@ -191,14 +191,10 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
     }
 
     try {
-      const res = await fetch(`/api/empresas?id=${form.empresa_id}`);
+      const res = await fetch(`/api/empresas/${form.empresa_id}`);
       const data = await res.json();
+      setEmpresa(data?.empresa ?? null);
 
-      if (Array.isArray(data) && data.length > 0) {
-        setEmpresa(data[0] as Empresa);
-      } else {
-        setEmpresa(null);
-      }
     } catch (error) {
       console.error("Erro ao carregar empresa do lead:", error);
       setEmpresa(null);
@@ -240,7 +236,7 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
   const handleEditToggle = () => setIsEditing((prev) => !prev);
 
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
@@ -289,7 +285,7 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
       if (!res.ok) {
         console.error("Erro ao excluir lead:", await res.text());
         alert(
-          "❌ Não foi possível excluir. Verifique se há interações vinculadas."
+          "❌ Não foi possível excluir. Verifique se há interações vinculadas.",
         );
         return;
       }
@@ -300,7 +296,7 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
     } catch (error) {
       console.error("Erro ao excluir lead:", error);
       alert(
-        "❌ Não foi possível excluir. Verifique se há interações vinculadas."
+        "❌ Não foi possível excluir. Verifique se há interações vinculadas.",
       );
     }
   };
