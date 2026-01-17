@@ -204,13 +204,17 @@ function statusIconByKey(key: string) {
 async function updateLeadStatus(leadId: string, status: LeadStatus) {
   await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/status`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-exxacta-signature": process.env.EXXACTA_N8N_SECRET!,
+    },
     body: JSON.stringify({
       lead_id: leadId,
       status,
     }),
   });
 }
+
 
 function formatDateBR(iso: string) {
   try {
