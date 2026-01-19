@@ -103,8 +103,8 @@ export async function POST(req: NextRequest) {
     }
 
     /* ============================
-       2️⃣ CRIA LEAD AUTOMÁTICO
-       (pipeline / status novo)
+       2️⃣  LEAD AUTOMÁTICO
+       
        ⚠️ NÃO dispara n8n
     ============================ */
     const { error: leadError } = await supabaseAdmin
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (leadError) {
-      // ⚠️ Importante: NÃO quebra a criação da empresa
+      
       console.error(
         "⚠️ Empresa criada, mas erro ao criar lead automático:",
         leadError

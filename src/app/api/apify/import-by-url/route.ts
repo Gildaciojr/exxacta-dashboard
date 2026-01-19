@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ URL do backend (já existe no Vercel)
+    // ✅ URL do backend 
     const backendUrl = readEnv("NEXT_PUBLIC_BACKEND_URL");
 
-    // ✅ ASSINATURA CORRETA (EXISTE no Vercel)
+    // ✅ ASSINATURA 
     const signature = readEnv("NEXT_PUBLIC_EXXACTA_SIGNATURE");
 
     const response = await fetch(

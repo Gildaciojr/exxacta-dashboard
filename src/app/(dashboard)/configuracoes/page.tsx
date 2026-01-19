@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 
 /* ===========================================================
-   COMPONENTE SECTION (fora do render)
+   COMPONENTE SECTION 
 =========================================================== */
 /* ===========================================================
-   COMPONENTE SECTION (AGORA FLUTUANTE & INTERATIVO)
+   COMPONENTE SECTION 
 =========================================================== */
 type SectionProps = {
   icon: React.ElementType;
@@ -83,7 +83,7 @@ export default function ConfiguracoesPage() {
     <div className="p-8 space-y-10 max-w-4xl mx-auto">
 
       {/* =========================================================
-         🏷️ TÍTULO PRINCIPAL (AGORA NO MESMO PADRÃO)
+         🏷️ TÍTULO PRINCIPAL 
       ========================================================= */}
       <header
         className="

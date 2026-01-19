@@ -78,7 +78,7 @@ export default function EstatisticasPage() {
         interacoes: interacoes ?? 0,
       });
 
-      // Agrupamento seguro no frontend
+      // Agrupamento 
       const map = new Map<string, number>();
 
       (leadStatuses as LeadStatusRow[] | null)?.forEach((row) => {

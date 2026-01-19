@@ -8,7 +8,6 @@ export type Empresa = {
   /**
    * Tamanho da empresa por FAIXA
    * Ex: "10_ate_20", "21_ate_50", "51_ate_100", "101_ate_150"
-   * É isso que o dashboard e os filtros usam
    */
   tamanho: string | null;
 

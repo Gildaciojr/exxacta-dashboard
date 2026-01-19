@@ -20,7 +20,7 @@ type Props = {
 
 export function EmpresaModal({ open, onClose, empresa }: Props) {
   // ===============================
-  // 🔹 HOOKS (sempre no topo)
+  // 🔹 HOOKS 
   // ===============================
   const [nome, setNome] = useState("");
   const [cidade, setCidade] = useState("");
@@ -47,7 +47,7 @@ export function EmpresaModal({ open, onClose, empresa }: Props) {
   }, [empresa]);
 
   // ===============================
-  // 🔹 GUARD (após hooks)
+  // 🔹 GUARD 
   // ===============================
   if (!empresa) return null;
   const empresaSafe = empresa;

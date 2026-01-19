@@ -25,12 +25,12 @@ type TemplateForm = {
   assunto: string;
 
   /**
-   * ⚠️ IMPORTANTE (alinhamento com Supabase):
+   * (alinhamento com Supabase):
    * A tabela `email_templates` tem coluna `corpo` (text) e NÃO tem `email_template`/`assinatura`.
    *
-   * ✅ Mantemos estes 2 campos no frontend (sem “simplificar” seu modal),
-   * mas ao SALVAR nós unimos os dois em `corpo`.
-   * Ao CARREGAR nós tentamos separar `corpo` em (mensagem + assinatura) de forma defensiva.
+   * 2 campos no frontend,
+   *  ao SALVAR une os dois em `corpo`.
+   * Ao CARREGAR separar `corpo` em (mensagem + assinatura) de forma defensiva.
    */
   email_template: string;
   assinatura: string;
@@ -59,11 +59,8 @@ const ETAPAS: ReadonlyArray<{ key: Etapa; label: string; hint: string }> = [
 
 /**
  * ✅ IMPORTANTE:
- * Sua tabela email_templates.id é UUID.
- * Então precisamos de um UUID válido por etapa.
- *
- * Esses UUIDs podem ser quaisquer valores válidos,
- * desde que sejam fixos e NÃO mudem entre deploys.
+ * tabela email_templates.id é UUID.
+ * um UUID válido por etapa.
  */
 const DEFAULT_ID_BY_ETAPA: Readonly<Record<Etapa, string>> = {
   day01: "11111111-1111-1111-1111-111111111111",
@@ -80,7 +77,7 @@ function prettyEtapa(etapa: Etapa) {
 }
 
 /* ======================================================
-   HELPERS (SEM any / SEM simplificar)
+   HELPERS 
 ====================================================== */
 
 /**
@@ -141,7 +138,7 @@ function splitCorpo(
     // ignora linhas vazias no final
     if (i === lines.length - 1 && line === "") continue;
 
-    // se a linha começa com algum marcador, assume assinatura dali até o fim
+    // se a linha começa com algum marcador
     const isMarker = markers.some((m) => line.startsWith(m));
     if (isMarker) {
       const msg = lines.slice(0, i).join("\n").trimEnd();
@@ -178,7 +175,7 @@ export function EmailTemplateModal({
   // etapa atual no select
   const [etapa, setEtapa] = useState<Etapa>("day01");
 
-  // cache local por etapa (SaaS real)
+  // cache local por etapa
   const [drafts, setDrafts] = useState<Record<Etapa, TemplateForm>>({
     day01: {
       id: DEFAULT_ID_BY_ETAPA.day01,
@@ -263,7 +260,7 @@ export function EmailTemplateModal({
             (["day01", "day03", "day07"] as Etapa[]).forEach((k) => {
               const row = byEtapa.get(k);
 
-              // ✅ id SEMPRE deve ser UUID válido
+              
               const safeId =
                 typeof row?.id === "string" && row.id.length > 0
                   ? row.id
@@ -288,7 +285,7 @@ export function EmailTemplateModal({
           return;
         }
 
-        // Se não vier array, tratamos como erro defensivo
+      
         console.error("❌ Retorno inesperado GET /api/email-templates:", data);
         alert("❌ Erro ao carregar configurações");
       } catch (err) {

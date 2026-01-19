@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
         timestamp: new Date().toISOString(),
       }),
     }).catch((err) => {
-      // falha silenciosa: nunca quebra o fluxo principal
+      
       console.error("Falha ao disparar webhook n8n:", err);
     });
 

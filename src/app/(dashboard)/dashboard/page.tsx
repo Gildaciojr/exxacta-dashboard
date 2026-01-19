@@ -249,7 +249,7 @@ export default function DashboardPage() {
   const [searchEmpresas, setSearchEmpresas] = useState("");
   const [searchInteracoes, setSearchInteracoes] = useState("");
 
-  // refs para evitar duplicação com closures antigas no realtime
+  // refs para evitar duplicação com closures
   const leadsIdsRef = useRef<Set<string>>(new Set());
   const interacoesIdsRef = useRef<Set<string>>(new Set());
 
@@ -344,7 +344,7 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================================================
-     ✅ REALTIME (SEM REFRESH)
+     ✅ REALTIME 
   ========================================================= */
 
   useRealtimeLeadsInteracoes({
@@ -1152,7 +1152,7 @@ export default function DashboardPage() {
         }}
       />
 
-      {/* ✅ Modal de interação agora precisa ser "operacional" */}
+      {/* ✅ Modal de interação  */}
       <InteracaoModal
         open={openInteracaoModal}
         onClose={() => setOpenInteracaoModal(false)}

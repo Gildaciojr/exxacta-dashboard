@@ -75,7 +75,7 @@ export async function POST(req: Request) {
 
   if (interacaoError) {
     console.error("⚠️ Falha ao registrar interação (perdido):", interacaoError);
-    // NUNCA quebrar o fluxo — registrar e seguir
+   
   }
 
   // ==========================================================

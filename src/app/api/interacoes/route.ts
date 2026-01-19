@@ -40,13 +40,13 @@ function mapInteracaoParaStatusLead(
   statusInteracao: string
 ): string | null {
   const map: Record<string, string | null> = {
-    // ✅ existe no enum
+    //  existe no enum
     contatado: "contatado",
 
     // resposta real do lead
     respondeu: "interessado",
 
-    // follow-up NÃO muda pipeline
+    // follow-up 
     follow_up: null,
 
     // negociação real
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
 
     /* ==================================================
        3. Atualiza status do lead (SEM N8N)
-       ⚠️ Apenas status reais do enum
+       Apenas status reais do enum
     ================================================== */
     const novoStatusLead = mapInteracaoParaStatusLead(status);
 
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
           "Erro ao atualizar status do lead:",
           updateError
         );
-        // ⚠️ não quebra o fluxo
+        
       }
     }
 

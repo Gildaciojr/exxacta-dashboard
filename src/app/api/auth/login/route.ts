@@ -8,7 +8,7 @@ interface LoginBody {
 
 /**
  * 🔐 POST /api/auth/login
- * Valida usuário e senha sem hash (por decisão do cliente)
+ * Valida usuário e senha sem hash
  */
 export async function POST(req: Request) {
   try {

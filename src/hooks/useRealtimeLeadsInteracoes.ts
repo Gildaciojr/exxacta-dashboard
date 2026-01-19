@@ -30,7 +30,7 @@ export type Interacao = {
 };
 
 /* ============================
-   TYPE GUARDS (CRÍTICO)
+   TYPE GUARDS
 ============================ */
 
 function isLead(value: unknown): value is Lead {
@@ -59,6 +59,7 @@ function isInteracao(value: unknown): value is Interacao {
 type Params = {
   onInteracaoInsert?: (row: Interacao) => void;
   onInteracaoUpdate?: (row: Interacao) => void;
+  onInteracaoDelete?: (id: string) => void; // 
   onLeadInsert?: (row: Lead) => void;
   onLeadUpdate?: (row: Lead) => void;
 };
@@ -70,6 +71,7 @@ type Params = {
 export function useRealtimeLeadsInteracoes({
   onInteracaoInsert,
   onInteracaoUpdate,
+  onInteracaoDelete,
   onLeadInsert,
   onLeadUpdate,
 }: Params) {
@@ -85,13 +87,11 @@ export function useRealtimeLeadsInteracoes({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "interacoes" },
-        (
-          payload: RealtimePostgresChangesPayload<Interacao>
-        ) => {
+        (payload: RealtimePostgresChangesPayload<Interacao>) => {
           if (isInteracao(payload.new)) {
             onInteracaoInsert?.(payload.new);
           }
-        }
+        },
       )
 
       // ============================
@@ -100,13 +100,31 @@ export function useRealtimeLeadsInteracoes({
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "interacoes" },
-        (
-          payload: RealtimePostgresChangesPayload<Interacao>
-        ) => {
+        (payload: RealtimePostgresChangesPayload<Interacao>) => {
           if (isInteracao(payload.new)) {
             onInteracaoUpdate?.(payload.new);
           }
-        }
+        },
+      )
+
+      // ============================
+      // 🔥 INTERAÇÕES - DELETE 
+      // ============================
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "interacoes" },
+        (payload: RealtimePostgresChangesPayload<Interacao>) => {
+          const oldRow = payload.old;
+
+          if (
+            oldRow &&
+            typeof oldRow === "object" &&
+            "id" in oldRow &&
+            typeof (oldRow as { id: unknown }).id === "string"
+          ) {
+            onInteracaoDelete?.((oldRow as { id: string }).id);
+          }
+        },
       )
 
       // ============================
@@ -115,13 +133,11 @@ export function useRealtimeLeadsInteracoes({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "leads" },
-        (
-          payload: RealtimePostgresChangesPayload<Lead>
-        ) => {
+        (payload: RealtimePostgresChangesPayload<Lead>) => {
           if (isLead(payload.new)) {
             onLeadInsert?.(payload.new);
           }
-        }
+        },
       )
 
       // ============================
@@ -130,13 +146,11 @@ export function useRealtimeLeadsInteracoes({
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "leads" },
-        (
-          payload: RealtimePostgresChangesPayload<Lead>
-        ) => {
+        (payload: RealtimePostgresChangesPayload<Lead>) => {
           if (isLead(payload.new)) {
             onLeadUpdate?.(payload.new);
           }
-        }
+        },
       )
 
       .subscribe();
@@ -146,5 +160,11 @@ export function useRealtimeLeadsInteracoes({
         supabase.removeChannel(channel);
       }
     };
-  }, [onInteracaoInsert, onInteracaoUpdate, onLeadInsert, onLeadUpdate]);
+  }, [
+    onInteracaoInsert,
+    onInteracaoUpdate,
+    onInteracaoDelete,
+    onLeadInsert,
+    onLeadUpdate,
+  ]);
 }

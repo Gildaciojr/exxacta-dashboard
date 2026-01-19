@@ -246,7 +246,7 @@ export function AddEntityModal({ open, onClose }: Props) {
           </div>
         )}
 
-        {/* BOTÕES 🔥 VIDA E IDENTIDADE */}
+        {/* BOTÕES E IDENTIDADE */}
         <div className="flex justify-between mt-6">
           <button
             onClick={onClose}

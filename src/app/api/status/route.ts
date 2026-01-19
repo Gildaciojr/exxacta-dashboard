@@ -23,8 +23,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // 🔥 O frontend NÃO decide regra de negócio
-  // 🔥 Apenas repassa para o backend oficial
+  //  O frontend NÃO decide regra de negócio
+  //  Apenas repassa para o backend oficial
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
   if (!backendUrl) {

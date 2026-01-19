@@ -153,7 +153,7 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
 
   const [openNovaInteracaoModal, setOpenNovaInteracaoModal] = useState(false);
 
-  // ✅ status (modal) — sincronizado com o lead e com o pipeline
+  //  status (modal) — sincronizado com o lead e com o pipeline
   const [statusLocal, setStatusLocal] = useState<LeadStatus>("novo");
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
@@ -301,7 +301,7 @@ export function LeadModal({ open, onClose, lead, onUpdated }: Props) {
     }
   };
 
-  // ✅ Dropdown de status no MODAL (mesmo padrão do card)
+  // ✅ Dropdown de status no MODAL
   const handleStatusChange = async (next: LeadStatus) => {
     if (!lead?.id) return;
 

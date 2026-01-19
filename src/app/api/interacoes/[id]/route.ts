@@ -81,7 +81,7 @@ export async function PUT(
 
 /* ======================================================
    DELETE /api/interacoes/:id
-   🔥 NOVO — LIBERA EXCLUSÃO DE LEAD / EMPRESA
+    — LIBERA EXCLUSÃO DE LEAD / EMPRESA
 ====================================================== */
 
 export async function DELETE(

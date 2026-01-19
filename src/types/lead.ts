@@ -1,7 +1,7 @@
 export type LeadStatus =
   | "novo"
   | "email_enviado"
-  | "aquecimento"   // ✅ NOVO STATUS REAL
+  | "aquecimento"
   | "contatado"
   | "follow_up"
   | "respondeu"

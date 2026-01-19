@@ -80,7 +80,7 @@ export async function POST(req: Request) {
 
   if (interacaoError) {
     console.error("⚠️ Não foi possível registrar interação:", interacaoError);
-    // Não quebramos o fluxo — apenas registramos
+   
   }
 
   // ==========================================================
