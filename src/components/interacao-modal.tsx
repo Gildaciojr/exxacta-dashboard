@@ -10,7 +10,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Pencil, Plus, ExternalLink, Save } from "lucide-react";
+import {
+  Loader2,
+  Pencil,
+  Plus,
+  ExternalLink,
+  Save,
+  Trash2,
+} from "lucide-react";
 
 type Interacao = {
   id: string;
@@ -28,7 +35,6 @@ type Props = {
   open: boolean;
   onClose: () => void;
   interacao: Interacao | null;
-
   onUpdated: () => void;
   onOpenLead: (leadId: string) => void;
   onCreateNew: () => void;
@@ -52,9 +58,9 @@ export function InteracaoModal({
     observacao: "",
   });
 
-  // ======================================================
-  // SINCRONIZAÇÃO
-  // ======================================================
+  /* ======================================================
+     SINCRONIZAÇÃO
+  ====================================================== */
   useEffect(() => {
     if (!interacao) return;
 
@@ -68,9 +74,9 @@ export function InteracaoModal({
     setError(null);
   }, [interacao]);
 
-  // ======================================================
-  // GUARDA ENTERPRISE (NÃO DESMONTA O MODAL)
-  // ======================================================
+  /* ======================================================
+     GUARDA ENTERPRISE
+  ====================================================== */
   if (!interacao) {
     return (
       <Dialog open={open} onOpenChange={onClose}>
@@ -79,12 +85,11 @@ export function InteracaoModal({
     );
   }
 
-  // 🔒 NARROWING DEFINITIVO (TIPAGEM ENTERPRISE)
   const interaction = interacao;
 
-  // ======================================================
-  // SAVE
-  // ======================================================
+  /* ======================================================
+     SAVE
+  ====================================================== */
   async function handleSave() {
     try {
       setSaving(true);
@@ -117,9 +122,43 @@ export function InteracaoModal({
     }
   }
 
-  // ======================================================
-  // UI
-  // ======================================================
+  /* ======================================================
+     DELETE — NOVO
+  ====================================================== */
+  async function handleDelete() {
+    const confirmar = window.confirm(
+      "Tem certeza que deseja excluir esta interação?\nEssa ação não pode ser desfeita."
+    );
+    if (!confirmar) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const res = await fetch(`/api/interacoes/${interaction.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setError(data?.error || "Erro ao excluir interação");
+        return;
+      }
+
+      onUpdated();
+      onClose();
+    } catch (e) {
+      console.error(e);
+      setError("Erro inesperado ao excluir interação");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /* ======================================================
+     UI
+  ====================================================== */
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-xl">
@@ -156,6 +195,7 @@ export function InteracaoModal({
 
         {/* FORM */}
         <div className="space-y-4 pt-4">
+          {/* Status */}
           <div>
             <label className="text-sm font-medium text-slate-700">Status</label>
             <select
@@ -175,6 +215,7 @@ export function InteracaoModal({
             </select>
           </div>
 
+          {/* Canal */}
           <div>
             <label className="text-sm font-medium text-slate-700">Canal</label>
             <select
@@ -194,6 +235,7 @@ export function InteracaoModal({
             </select>
           </div>
 
+          {/* Observação */}
           <div>
             <label className="text-sm font-medium text-slate-700">
               Observação
@@ -250,6 +292,16 @@ export function InteracaoModal({
           </div>
 
           <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={saving}
+              className="flex items-center gap-2"
+            >
+              <Trash2 size={14} />
+              Excluir
+            </Button>
+
             <Button
               variant="outline"
               onClick={onCreateNew}

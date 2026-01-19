@@ -78,3 +78,48 @@ export async function PUT(
     );
   }
 }
+
+/* ======================================================
+   DELETE /api/interacoes/:id
+   🔥 NOVO — LIBERA EXCLUSÃO DE LEAD / EMPRESA
+====================================================== */
+
+export async function DELETE(
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await context.params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID da interação não informado" },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabaseAdmin
+      .from("interacoes")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Erro ao excluir interação:", error);
+      return NextResponse.json(
+        { error: "Erro ao excluir interação" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      { message: "Interação excluída com sucesso" },
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("Erro interno ao excluir interação:", err);
+    return NextResponse.json(
+      { error: "Erro interno ao excluir interação" },
+      { status: 500 }
+    );
+  }
+}
