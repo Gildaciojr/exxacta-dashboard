@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
 /* ============================
    POST — CRIAR EMPRESA
-   /api/empresas
+   + CRIAR LEAD AUTOMÁTICO
 ============================ */
 export async function POST(req: NextRequest) {
   try {
@@ -77,32 +77,61 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const empresa = parsed.data;
+    const empresaInput = parsed.data;
 
-    const { data, error } = await supabaseAdmin
+    /* ============================
+       1️⃣ CRIA EMPRESA
+    ============================ */
+    const { data: empresa, error: empresaError } = await supabaseAdmin
       .from("empresas")
       .insert({
-        nome: empresa.nome,
-        cidade: empresa.cidade ?? null,
-        tamanho: empresa.tamanho,
-        site: empresa.site ?? null,
-        linkedin_url: empresa.linkedin_url ?? null,
+        nome: empresaInput.nome,
+        cidade: empresaInput.cidade ?? null,
+        tamanho: empresaInput.tamanho,
+        site: empresaInput.site ?? null,
+        linkedin_url: empresaInput.linkedin_url ?? null,
       })
       .select("*")
       .single();
 
-    if (error) {
-      console.error("Erro ao criar empresa:", error);
+    if (empresaError || !empresa) {
+      console.error("Erro ao criar empresa:", empresaError);
       return NextResponse.json(
-        { error: "Erro ao criar empresa", details: error.message },
+        { error: "Erro ao criar empresa" },
         { status: 500 }
+      );
+    }
+
+    /* ============================
+       2️⃣ CRIA LEAD AUTOMÁTICO
+       (pipeline / status novo)
+       ⚠️ NÃO dispara n8n
+    ============================ */
+    const { error: leadError } = await supabaseAdmin
+      .from("leads")
+      .insert({
+        nome: empresa.nome,
+        perfil: "empresa",
+        empresa_id: empresa.id,
+        status: "novo",
+        cargo: null,
+        email: null,
+        telefone: null,
+        linkedin_url: empresa.linkedin_url ?? null,
+      });
+
+    if (leadError) {
+      // ⚠️ Importante: NÃO quebra a criação da empresa
+      console.error(
+        "⚠️ Empresa criada, mas erro ao criar lead automático:",
+        leadError
       );
     }
 
     return NextResponse.json(
       {
         message: "Empresa criada com sucesso",
-        empresa: data,
+        empresa,
       },
       { status: 201 }
     );
